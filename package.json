@@ -1,0 +1,23 @@
+{
+  "name": "cdapp-data-collector",
+  "version": "1.0.0",
+  "description": "A collection of scripts to aid in data collection for the new CDapp format",
+  "main": "index.js",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JoinColony/cdapp-data-collector.git"
+  },
+  "author": "Raul Glogovetan <raul@colony.io>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/JoinColony/cdapp-data-collector/issues"
+  },
+  "homepage": "https://github.com/JoinColony/cdapp-data-collector#readme",
+  "dependencies": {
+    "@colony/colony-js": "^6.3.6",
+    "dotenv": "^16.0.3",
+    "ethers": "^5.7.2",
+    "node-fetch": "^3.3.1"
+  }
+}
