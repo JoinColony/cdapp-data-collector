@@ -99,8 +99,8 @@ const run = async () => {
           if (colonyMetadata.data) {
             const {
               colonyDisplayName,
-              colonyAvatarHash, // @TODO fetch avatar from ipfs and store it locally
-              colonyTokens, // @TODO fetch token from chain and store it locally
+              colonyAvatarHash,
+              colonyTokens,
               verifiedAddresses,
               isWhitelistActivated
             } = colonyMetadata.data;
@@ -115,6 +115,18 @@ const run = async () => {
                 console.log('Ipfs Avatar:', colonyAvatar.image.slice(0, 40), '...');
               } else {
                 console.log('Ipfs Avatar Hash:', colonyAvatarHash);
+              }
+            }
+
+            // fetch all tokens this colony has
+            if (colonyTokens && colonyTokens.length) {
+              for (let colonySavedTokenIndex = 0; colonySavedTokenIndex < colonyTokens.length; colonySavedTokenIndex += 1) {
+                console.log();
+                const colonySavedToken = await getToken(colonyTokens[colonySavedTokenIndex]);
+                console.log('Saved Token Address:', colonySavedToken.address);
+                console.log('Saved Token Name:', colonySavedToken.name);
+                console.log('Saved Token Symbol:', colonySavedToken.symbol);
+                console.log('Saved Token Decimals:', colonySavedToken.decimals);
               }
             }
           }
