@@ -4,7 +4,7 @@ import { utils } from 'ethers';
 import networkClient from './networkClient.js';
 import graphQL from './graphQl.js';
 import ipfs from './ipfs.js';
-import { sortMetadataByTimestamp } from './utils.js';
+import { sortMetadataByTimestamp, getToken } from './utils.js';
 
 import { getColony } from './queries.js';
 
@@ -12,6 +12,7 @@ dotenv.config();
 utils.Logger.setLogLevel(utils.Logger.levels.ERROR);
 
 const run = async () => {
+
   console.time('setup');
   console.time('total-runtime');
 
@@ -21,7 +22,7 @@ const run = async () => {
 
   for (let colonyId = 1; colonyId <= coloniesCount.toNumber(); colonyId += 1) {
 
-    // short circuit for testing, this RC colony on QA
+    // short circuit for testing, this is RC colony on QA
     if (colonyId === 2) {
 
       console.time('colony-fetch');
@@ -40,16 +41,13 @@ const run = async () => {
 
       // token
       console.log();
-      const currentColonyTokenClient = currentColonyClient.tokenClient;
 
-      const currentColonyTokenName = await currentColonyTokenClient.name();
-      const currentColonyTokenSymbol = await currentColonyTokenClient.symbol();
-      const currentColonyTokenDecimals = await currentColonyTokenClient.decimals();
+      const currentColonyToken = await getToken(currentColonyClient.tokenClient.address);
 
-      console.log('Chain Token Address:', currentColonyTokenClient.address);
-      console.log('Chain Token Name:', currentColonyTokenName);
-      console.log('Chain Token Symbol:', currentColonyTokenSymbol);
-      console.log('Chain Token Decimals:', currentColonyTokenDecimals);
+      console.log('Chain Token Address:', currentColonyToken.address);
+      console.log('Chain Token Name:', currentColonyToken.name);
+      console.log('Chain Token Symbol:', currentColonyToken.symbol);
+      console.log('Chain Token Decimals:', currentColonyToken.decimals);
 
       // domains
       console.log()
