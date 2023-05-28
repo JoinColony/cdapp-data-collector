@@ -7,10 +7,32 @@ import { utils, constants } from 'ethers';
 import colonyJS from './node_modules/@colony/colony-js/dist/cjs/index.js';
 
 import provider from './provider.js';
+import ipfs from './ipfs.js';
 
 // note that __filename and __dirname don't exist in node if package json declares "module"
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+const writeJsonToFile = async (path, data) => {
+  console.time('write-json-file');
+
+  try {
+    // only write it if it doesn't exist, save on I/O disk actions! Would somebody please think of the SSDs...
+    if (!existsSync(path)) {
+      await writeJsonFile(path, data);
+
+      console.timeEnd('write-json-file');
+      return true;
+    }
+  } catch (error) {
+    console.error(`Could not write file: ${path}`);
+    console.error(error);
+  }
+
+  console.timeEnd('write-json-file');
+  return false;
+};
+
 
 const writeTokenToFile = async ({
   address = constants.AddressZero,
@@ -18,31 +40,23 @@ const writeTokenToFile = async ({
   name,
   decimals
 } = {}) => {
-  console.time('write-token-file');
-
   const checksummedTokenAddress = utils.getAddress(address);
-  const tokenFilePath = resolve(__dirname, '.', 'tokens', `${checksummedTokenAddress}.json`);
+  const filePath = resolve(__dirname, '.', 'tokens', `${checksummedTokenAddress}.json`);
 
-  try {
-    // only write it if it doesn't exist, save on I/O disk actions! Would somebody please think of the SSDs...
-    if (!existsSync(tokenFilePath)) {
-      await writeJsonFile(tokenFilePath, {
-        address: checksummedTokenAddress,
-        symbol,
-        name,
-        decimals,
-      })
+  return writeJsonToFile(filePath, {
+    address: checksummedTokenAddress,
+    symbol,
+    name,
+    decimals,
+  });
+};
 
-      console.timeEnd('write-token-file');
-      return true;
-    }
-  } catch (error) {
-    console.error(`Could not write token file: ${tokenFilePath}`);
-    console.error(error);
-  }
-
-  console.timeEnd('write-token-file');
-  return false;
+const writeIpfsToFile = async ({
+  hash,
+  data,
+} = {}) => {
+  const filePath = resolve(__dirname, '.', 'ipfs', `${hash}.json`);
+  return writeJsonToFile(filePath, data);
 };
 
 export const sortMetadataByTimestamp = (
@@ -109,3 +123,41 @@ export const getToken = async (address = constants.AddressZero) => {
     console.timeEnd('get-token');
   }
 };
+
+export const getIpfsHash = async (hash) => {
+  console.time('get-ipfs-data');
+
+  const filePath = resolve(__dirname, '.', 'ipfs', `${hash}.json`);
+
+  // see if we already have it
+  let ipfsFile = {};
+  try {
+    ipfsFile = await loadJsonFile(filePath);
+  } catch (error) {
+    // most likely the file doesn't exist
+  }
+  if (Object.keys(ipfsFile).length) {
+    // return locally stored ipfs object
+    console.timeEnd('get-ipfs-data');
+    return ipfsFile;
+  }
+
+  try {
+    const newIpfsData = await ipfs(hash);
+
+    // save it locally
+    await writeIpfsToFile({
+      hash,
+      data: newIpfsData,
+    });
+
+    // return the newly fetched ipfs object
+    console.timeEnd('get-ipfs-data');
+    return newIpfsData;
+
+  } catch (error) {
+    console.error(`Could not fetch IPFS hash ${hash}`);
+    console.error(error);
+    console.timeEnd('get-ipfs-data');
+  }
+}

@@ -3,8 +3,7 @@ import { utils } from 'ethers';
 
 import networkClient from './networkClient.js';
 import graphQL from './graphQl.js';
-import ipfs from './ipfs.js';
-import { sortMetadataByTimestamp, getToken } from './utils.js';
+import { sortMetadataByTimestamp, getToken, getIpfsHash } from './utils.js';
 
 import { getColony } from './queries.js';
 
@@ -95,7 +94,7 @@ const run = async () => {
         const colonyMetadataHash = metadata || (mostRecentMetadataHistory && mostRecentMetadataHistory.metadata);
 
         if (colonyMetadataHash) {
-          const colonyMetadata = await ipfs(colonyMetadataHash);
+          const colonyMetadata = await getIpfsHash(colonyMetadataHash);
 
           if (colonyMetadata.data) {
             const {
@@ -110,7 +109,7 @@ const run = async () => {
             console.log('Ipfs Display Name:', colonyDisplayName);
 
             if (colonyAvatarHash) {
-              const colonyAvatar = await ipfs(colonyAvatarHash);
+              const colonyAvatar = await getIpfsHash(colonyAvatarHash);
 
               if (colonyAvatar.image) {
                 console.log('Ipfs Avatar:', colonyAvatar.image.slice(0, 40), '...');
@@ -141,7 +140,7 @@ const run = async () => {
           console.log('Subgraph Domain Fallback Name:', subgraphDomainName);
 
           if (subgraphDomainMetadataHash) {
-            const subgraphDomainMetadataValue = await ipfs(subgraphDomainMetadataHash);
+            const subgraphDomainMetadataValue = await getIpfsHash(subgraphDomainMetadataHash);
 
             if (subgraphDomainMetadataValue) {
               const {
