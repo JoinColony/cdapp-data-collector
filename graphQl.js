@@ -1,9 +1,10 @@
 import { default as fetch, Request } from 'node-fetch';
 
-const graphQl = async (queryOrMutation, variables, url = process.env.SUBGRAPH_ADDRESS) => {
+const graphQl = async (queryOrMutation, variables, url = process.env.SUBGRAPH_ADDRESS, extraHeaders = {}) => {
   const options = {
     method: 'POST',
     headers: {
+      ...extraHeaders,
       // 'x-api-key': authKey,
       'Content-Type': 'application/json',
     },

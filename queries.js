@@ -45,3 +45,22 @@ export const getColony = /* GraphQL */ `
     }
   }
 `;
+
+export const getColonyMembers = /* GraphQL */ `
+  query GetColonyMembers($address: String!) {
+    subscribedUsers(colonyAddress: $address) {
+      id
+      profile {
+        username
+        avatarHash
+        displayName
+        bio
+        walletAddress
+        location
+        website
+      }
+      colonyAddresses
+      tokenAddresses
+    }
+  }
+`;
