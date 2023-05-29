@@ -3,7 +3,8 @@ import { utils } from 'ethers';
 
 import networkClient from './networkClient.js';
 import graphQL from './graphQl.js';
-import { sortMetadataByTimestamp, getToken, getIpfsHash } from './utils.js';
+import { sortMetadataByTimestamp } from './utils.js';
+import { getToken, getIpfsHash, getColonySubscribers, getUser } from './helpers.js';
 
 import { getColony } from './queries.js';
 
@@ -34,7 +35,7 @@ const run = async () => {
       console.log('Address:', currentColonyClient.address);
       console.log('Chain ID:', colonyId);
 
-      const colonyName = await networkClient.lookupRegisteredENSDomain(currentColonyClient.address);
+      const colonyName = await networkClient.lookupRegisteredENSDomainWithNetworkPatches(currentColonyClient.address);
       console.log('Name:', colonyName.slice(0, colonyName.indexOf('.')));
       console.log('ENS Name:', colonyName);
 
@@ -101,7 +102,7 @@ const run = async () => {
               colonyDisplayName,
               colonyAvatarHash,
               colonyTokens,
-              verifiedAddresses,
+              verifiedAddresses, // @todo whitelist
               isWhitelistActivated
             } = colonyMetadata.data;
 
@@ -180,6 +181,41 @@ const run = async () => {
 
       console.log();
       console.timeEnd('colony-ipfs-data');
+
+      console.time('colony-server-data');
+
+      // colony server data
+      const colonySubscribers = await getColonySubscribers(currentColonyClient.address);
+
+      // subscribers
+      if (colonySubscribers && colonySubscribers.length) {
+        for (let colonySubscriberIndex = 0; colonySubscriberIndex < colonySubscribers.length; colonySubscriberIndex += 1) {
+          // prefetch the user locally as well
+          await getUser(colonySubscribers[colonySubscriberIndex].id);
+
+          console.log()
+          console.log(`Subscriber #${colonySubscriberIndex + 1}`)
+          console.log('Colony Subscriber Display Address:', colonySubscribers[colonySubscriberIndex].id);
+          console.log('Colony Subscriber Name:', colonySubscribers[colonySubscriberIndex].profile.username);
+
+          if (colonySubscribers[colonySubscriberIndex].profile.displayName) {
+            console.log('Colony Subscriber Display Name:', colonySubscribers[colonySubscriberIndex].profile.displayName);
+          }
+
+          if (colonySubscribers[colonySubscriberIndex].profile.avatarHash) {
+            const subscriberAvatar = await getIpfsHash(colonySubscribers[colonySubscriberIndex].profile.avatarHash);
+
+            if (subscriberAvatar.image) {
+              console.log('Colony Subscriber Avatar:', subscriberAvatar.image.slice(0, 40), '...');
+            } else {
+              console.log('Colony Subscriber Avatar Hash:', colonySubscribers[colonySubscriberIndex].profile.avatarHash);
+            }
+          }
+        }
+      }
+
+      console.log();
+      console.timeEnd('colony-server-data');
 
       console.log();
       console.timeEnd('colony-fetch');
