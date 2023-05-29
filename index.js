@@ -14,22 +14,19 @@ utils.Logger.setLogLevel(utils.Logger.levels.ERROR);
 
 const run = async () => {
 
-  console.time('setup');
   console.time('total-runtime');
 
   const coloniesCount = await networkClient.getColonyCount();
-
-  console.timeEnd('setup');
 
   for (let colonyId = 1; colonyId <= coloniesCount.toNumber(); colonyId += 1) {
 
     // short circuit for testing, this is RC colony on QA
     if (colonyId === 2) {
 
-      console.time('colony-fetch');
+      console.time(`colony-${colonyId}-fetch`);
 
       console.log();
-      console.time('chain-data');
+      console.time(`colony-${colonyId}-chain-data`);
 
       const currentColonyClient = await networkClient.getColonyClient(colonyId);
 
@@ -59,9 +56,9 @@ const run = async () => {
       }
 
       console.log();
-      console.timeEnd('chain-data');
+      console.timeEnd(`colony-${colonyId}-chain-data`);
 
-      console.time('subgraph-data');
+      console.time(`colony-${colonyId}-subgraph-data`);
 
       // subgraph data
       const {
@@ -86,10 +83,10 @@ const run = async () => {
       }
 
       console.log();
-      console.timeEnd('subgraph-data');
+      console.timeEnd(`colony-${colonyId}-subgraph-data`);
 
       // metadata
-      console.time('colony-ipfs-data');
+      console.time(`colony-${colonyId}-ipfs-data`);
       if (currentColony.metadata || currentColony.metadataHistory.length) {
         const { metadata, metadataHistory } = currentColony;
         const [ mostRecentMetadataHistory ] = metadataHistory.sort(sortMetadataByTimestamp);
@@ -181,10 +178,10 @@ const run = async () => {
       }
 
       console.log();
-      console.timeEnd('colony-ipfs-data');
+      console.timeEnd(`colony-${colonyId}-ipfs-data`);
 
       // extensions
-      console.time('colony-extension-data');
+      console.time(`colony-${colonyId}-extension-data`);
 
       const currentColonyExtensions = {};
       await Promise.all(
@@ -279,11 +276,11 @@ const run = async () => {
       });
 
       console.log();
-      console.timeEnd('colony-extension-data');
+      console.timeEnd(`colony-${colonyId}-extension-data`);
 
 
       // colony server data
-      console.time('colony-server-data');
+      console.time(`colony-${colonyId}-server-data`);
 
       const colonySubscribers = await getColonySubscribers(currentColonyClient.address);
 
@@ -312,10 +309,10 @@ const run = async () => {
       }
 
       console.log();
-      console.timeEnd('colony-server-data');
+      console.timeEnd(`colony-${colonyId}-server-data`);
 
       console.log();
-      console.timeEnd('colony-fetch');
+      console.timeEnd(`colony-${colonyId}-fetch`);
 
     }
   }
