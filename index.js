@@ -1,12 +1,13 @@
 import dotenv from 'dotenv';
-import { utils } from 'ethers';
+import { utils, constants } from 'ethers';
+import colonyJS from './node_modules/@colony/colony-js/dist/cjs/index.js';
 
 import networkClient from './networkClient.js';
 import graphQL from './graphQl.js';
 import { sortMetadataByTimestamp } from './utils.js';
-import { getToken, getIpfsHash, getColonySubscribers, getUser } from './helpers.js';
+import { getToken, getIpfsHash, getColonySubscribers } from './helpers.js';
 
-import { getColony } from './queries.js';
+import { getColony, getExtensionEvents } from './queries.js';
 
 dotenv.config();
 utils.Logger.setLogLevel(utils.Logger.levels.ERROR);
@@ -182,17 +183,113 @@ const run = async () => {
       console.log();
       console.timeEnd('colony-ipfs-data');
 
-      console.time('colony-server-data');
+      // extensions
+      console.time('colony-extension-data');
+
+      const currentColonyExtensions = {};
+      await Promise.all(
+        ['OneTxPayment', 'VotingReputation'].map(async (extensionId) => {
+          const extensionHash = colonyJS.getExtensionHash(extensionId);
+          const extensionAddress = await networkClient.getExtensionInstallation(extensionHash, currentColonyClient.address);
+          if (extensionAddress !== constants.AddressZero) {
+
+            // events from the subgraph
+            const {
+              data: {
+                extensionInstalledEvents,
+                extensionInitialisedEvents,
+              } = {}
+            } = await graphQL(
+              getExtensionEvents,
+              {
+                colonyAddress: currentColonyClient.address.toLowerCase(),
+                extensionAddress: extensionAddress.toLowerCase(),
+              },
+              process.env.SUBGRAPH_ADDRESS,
+            );
+
+            const [{ timestamp, transaction: { transactionHash } }] =
+              extensionInstalledEvents
+                .filter(({ args }) => {
+                  const { extensionId: currentExtensionHash } = JSON.parse(args);
+                  return currentExtensionHash === extensionHash;
+                }) || [];
+
+            const receipt = await networkClient.provider.getTransactionReceipt(
+              transactionHash,
+            );
+
+            const currentExtensionClient = await currentColonyClient.getExtensionClient(
+              extensionId,
+            );
+
+            const deprecated = await currentExtensionClient.getDeprecated();
+            const version = await currentExtensionClient.version();
+
+            // if it's oneTxPayment
+            let initialized = true;
+            if (extensionId === 'VotingReputation') {
+              initialized = !!extensionInitialisedEvents.length;
+            }
+
+            const permissions = [];
+            await Promise.all(
+              [0, 1, 2, 3, 5, 6].map(async (role) => {
+                const roleExists = await currentColonyClient.hasUserRole(
+                  extensionAddress,
+                  1, // root domain
+                  role,
+                );
+                if (roleExists) {
+                  permissions.push(role);
+                }
+              }),
+            );
+
+            currentColonyExtensions[utils.getAddress(extensionAddress)] = {
+              address: utils.getAddress(extensionAddress),
+              name: extensionId,
+              hash: extensionHash,
+              deprecated,
+              initialized,
+              installedBy: receipt.from,
+              installedAt: timestamp,
+              version: version.toNumber(),
+              permissions: permissions.sort(),
+            };
+          }
+        }),
+      )
+
+      Object.keys(currentColonyExtensions).map(extensionAddress => {
+        const extension = currentColonyExtensions[extensionAddress];
+        console.log();
+        console.log('Chain Extension Address:', extension.address);
+        console.log('Chain Extension Name:', extension.name);
+        console.log('Chain Extension Installed By:', extension.installedBy);
+        console.log('Chain Extension Installed At:', extension.installedAt);
+        console.log('Chain Extension Version:', extension.version);
+        console.log(
+          'Chain Extension Roles:',
+          extension.permissions.map(role => colonyJS.ColonyRole[role]),
+        );
+        if (extension.deprecated) {
+          console.log('Chain Extension Deprecated:', extension.deprecated);
+        }
+      });
+
+      console.log();
+      console.timeEnd('colony-extension-data');
+
 
       // colony server data
+      console.time('colony-server-data');
+
       const colonySubscribers = await getColonySubscribers(currentColonyClient.address);
 
       // subscribers
       if (colonySubscribers && colonySubscribers.length) {
         for (let colonySubscriberIndex = 0; colonySubscriberIndex < colonySubscribers.length; colonySubscriberIndex += 1) {
-          // prefetch the user locally as well
-          await getUser(colonySubscribers[colonySubscriberIndex].id);
-
           console.log()
           console.log(`Subscriber #${colonySubscriberIndex + 1}`)
           console.log('Colony Subscriber Display Address:', colonySubscribers[colonySubscriberIndex].id);

@@ -1,3 +1,5 @@
+// subgraph
+
 export const getColony = /* GraphQL */ `
   query GetColony($address: String!) {
     colony(id: $address) {
@@ -18,10 +20,6 @@ export const getColony = /* GraphQL */ `
         tokenAddress: id
         decimals
         symbol
-      }
-      extensions {
-        address: id
-        hash
       }
     }
     domains(where: { colonyAddress: $address }) {
@@ -45,6 +43,59 @@ export const getColony = /* GraphQL */ `
     }
   }
 `;
+
+export const getExtensionEvents = /* GraphQL */ `
+  query SubgraphExtensionEvents($colonyAddress: String!, $extensionAddress: String!) {
+    extensionInstalledEvents: events(
+      orderBy: "timestamp",
+      orderDirection: desc,
+      where: {
+        name_contains: "ExtensionInstalled",
+        args_contains: $colonyAddress,
+      }
+    ) {
+      id
+      address
+      name
+      args
+      transaction {
+        id
+        transactionHash: id
+        block {
+          id
+          number: id
+          timestamp
+        }
+      }
+      timestamp
+    }
+    extensionInitialisedEvents: events(
+      orderBy: "timestamp",
+      orderDirection: desc,
+      where: {
+        name_contains: "ExtensionInitialised",
+        address: $extensionAddress
+      }
+    ) {
+      id
+      address
+      name
+      args
+      transaction {
+        id
+        transactionHash: id
+        block {
+          id
+          number: id
+          timestamp
+        }
+      }
+      timestamp
+    }
+  }
+`;
+
+// server
 
 export const getColonyMembers = /* GraphQL */ `
   query GetColonyMembers($address: String!) {
