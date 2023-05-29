@@ -7,7 +7,7 @@ import graphQL from './graphQl.js';
 import { sortMetadataByTimestamp } from './utils.js';
 import { getToken, getIpfsHash, getColonySubscribers } from './helpers.js';
 
-import { getColony, getExtensionEvents } from './queries.js';
+import { getColony, getExtensionEvents, getActionEvents } from './queries.js';
 
 dotenv.config();
 utils.Logger.setLogLevel(utils.Logger.levels.ERROR);
@@ -310,6 +310,98 @@ const run = async () => {
 
       console.log();
       console.timeEnd(`colony-${colonyId}-server-data`);
+
+      // actions
+      console.time(`colony-${colonyId}-actions-data`);
+
+      console.log();
+      let shouldFetchActions = true;
+      let currentColonyActions = [];
+      while (shouldFetchActions) {
+        const {
+          data: {
+            events
+          } = {}
+        } = await graphQL(
+          getActionEvents,
+          {
+            colonyAddress: currentColonyClient.address.toLowerCase(),
+            first: 50,
+            skip: currentColonyActions.length,
+          },
+          process.env.SUBGRAPH_ADDRESS,
+        );
+
+        if (events.length) {
+          currentColonyActions = [
+            ...currentColonyActions,
+            ...events,
+          ];
+        } else {
+          shouldFetchActions = false;
+        }
+
+        console.log(`Fetched ${currentColonyActions.length} action related events...`)
+
+        // throttle requests for 0.2s
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+
+      const reducedColonyActions = currentColonyActions.reduce(
+        (reducedActions, currentAction) => {
+          const actionTxHash = currentAction.transaction.hash;
+          const actionName = currentAction.name;
+          const values = JSON.parse(currentAction.args);
+          if (reducedActions[actionTxHash]) {
+            return {
+              ...reducedActions,
+              [actionTxHash]: {
+                ...reducedActions[actionTxHash],
+                values: [
+                  ...reducedActions[actionTxHash].values,
+                  {
+                    name: actionName,
+                    ...values,
+                  },
+                ],
+              },
+            };
+          }
+          const {
+            id,
+            address,
+            timestamp
+          } = currentAction;
+          return {
+            ...reducedActions,
+            [actionTxHash]: {
+              id,
+              address,
+              name: actionName,
+              transactionHash: actionTxHash,
+              timestamp,
+              values: [{
+                name: actionName,
+                ...values,
+              }],
+            }
+          };
+        },
+        {},
+      )
+
+      Object.keys(reducedColonyActions).map((colonyActionTransactionHash, colonyActionIndex) => {
+        const colonyAction = reducedColonyActions[colonyActionTransactionHash];
+        console.log()
+        console.log(`Colony Action #${colonyActionIndex + 1}`)
+        console.log('Colony Action Name:', colonyAction.name);
+        console.log('Colony Action TX:', colonyAction.transactionHash);
+        console.log('Colony Action Time:', colonyAction.timestamp);
+        console.log('Colony Action Values:', colonyAction.values);
+      });
+
+      console.log();
+      console.timeEnd(`colony-${colonyId}-actions-data`);
 
       console.log();
       console.timeEnd(`colony-${colonyId}-fetch`);

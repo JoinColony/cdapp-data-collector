@@ -95,6 +95,47 @@ export const getExtensionEvents = /* GraphQL */ `
   }
 `;
 
+export const getActionEvents = /* GraphQL */ `
+  query ActionEvents($colonyAddress: String!, $first: Int = 10, $skip: Int = 0) {
+    events(
+      first: $first,
+      skip: $skip,
+      orderBy: "timestamp",
+      orderDirection: asc,
+      where: {
+        associatedColony_contains: $colonyAddress,
+        name_in: [
+          "TokensMinted(address,address,uint256)",
+          "DomainAdded(address,uint256)",
+          "ColonyMetadata(address,string)",
+          "ColonyFundsMovedBetweenFundingPots(address,uint256,uint256,uint256,address)",
+          "DomainMetadata(address,uint256,string)",
+          "ColonyRoleSet(address,address,uint256,uint8,bool)",
+          "ColonyUpgraded(address,uint256,uint256)",
+          "ColonyUpgraded(uint256,uint256)",
+          "RecoveryModeEntered(address)",
+          "ArbitraryReputationUpdate(address,address,uint256,int256)",
+          "TokenUnlocked(address)",
+          "TokenUnlocked()",
+          "ArbitraryTransaction(address,bytes,bool)",
+        ]
+      }) {
+      id
+      address
+      transaction {
+        hash: id
+        # block {
+        #   id
+        #   timestamp
+        # }
+      }
+      name
+      args
+      timestamp
+    }
+  }
+`;
+
 // server
 
 export const getColonyMembers = /* GraphQL */ `
