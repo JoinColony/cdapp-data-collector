@@ -64,3 +64,22 @@ export const getColonyMembers = /* GraphQL */ `
     }
   }
 `;
+
+export const getUser = /* GraphQL */ `
+  query GetUser($address: String!) {
+    user(address: $address) {
+      id
+      profile {
+        username
+        avatarHash
+        displayName
+        bio
+        walletAddress
+        location
+        website
+      }
+      colonyAddresses
+      tokenAddresses
+    }
+  }
+`;

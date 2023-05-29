@@ -1,3 +1,4 @@
+import { nanoid } from 'nanoid'
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';
@@ -8,20 +9,28 @@ import colonyJS from './node_modules/@colony/colony-js/dist/cjs/index.js';
 
 import provider from './provider.js';
 import ipfs from './ipfs.js';
+import { getBearerToken } from './colonyServerJWTAuth.js';
+import graphQL from './graphQl.js';
+
+import {
+  getUser as getUserQuery,
+  getColonyMembers as getColonyMembersQuery,
+} from './queries.js';
 
 // note that __filename and __dirname don't exist in node if package json declares "module"
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const writeJsonToFile = async (path, data) => {
-  console.time('write-json-file');
+  const timerId = nanoid();
+  console.time(`write-json-file-${timerId}`);
 
   try {
     // only write it if it doesn't exist, save on I/O disk actions! Would somebody please think of the SSDs...
     if (!existsSync(path)) {
       await writeJsonFile(path, data);
 
-      console.timeEnd('write-json-file');
+      console.timeEnd(`write-json-file-${timerId}`);
       return true;
     }
   } catch (error) {
@@ -29,7 +38,7 @@ const writeJsonToFile = async (path, data) => {
     console.error(error);
   }
 
-  console.timeEnd('write-json-file');
+  console.timeEnd(`write-json-file-${timerId}`);
   return false;
 };
 
@@ -59,13 +68,23 @@ const writeIpfsToFile = async ({
   return writeJsonToFile(filePath, data);
 };
 
+const writeUserToFile = async ({
+  address = constants.AddressZero,
+  data,
+} = {}) => {
+  const checksummedUserAddress = utils.getAddress(address);
+  const filePath = resolve(__dirname, '.', 'users', `${checksummedUserAddress}.json`);
+  return writeJsonToFile(filePath, data);
+};
+
 export const sortMetadataByTimestamp = (
   { transaction: { block: { timestamp: timestampA }}},
   { transaction: { block: { timestamp: timestampB }}},
 ) => parseInt(timestampB, 10) - parseInt(timestampA, 10);
 
 export const getToken = async (address = constants.AddressZero) => {
-  console.time('get-token');
+  const timerId = nanoid();
+  console.time(`get-token-${timerId}`);
 
   const checksummedTokenAddress = utils.getAddress(address);
   const tokenFilePath = resolve(__dirname, '.', 'tokens', `${checksummedTokenAddress}.json`);
@@ -79,7 +98,7 @@ export const getToken = async (address = constants.AddressZero) => {
   }
   if (tokensFile.address) {
     // return locally stored token
-    console.timeEnd('get-token');
+    console.timeEnd(`get-token-${timerId}`);
     return tokensFile;
   }
 
@@ -114,18 +133,19 @@ export const getToken = async (address = constants.AddressZero) => {
     await writeTokenToFile(newToken);
 
     // return the newly fetched token
-    console.timeEnd('get-token');
+    console.timeEnd(`get-token-${timerId}`);
     return newToken;
 
   } catch (error) {
     console.error(`Could not fetch token ${address} from the chain`);
     console.error(error);
-    console.timeEnd('get-token');
+    console.timeEnd(`get-token-${timerId}`);
   }
 };
 
 export const getIpfsHash = async (hash) => {
-  console.time('get-ipfs-data');
+  const timerId = nanoid();
+  console.time(`get-ipfs-data-${timerId}`);
 
   const filePath = resolve(__dirname, '.', 'ipfs', `${hash}.json`);
 
@@ -138,7 +158,7 @@ export const getIpfsHash = async (hash) => {
   }
   if (Object.keys(ipfsFile).length) {
     // return locally stored ipfs object
-    console.timeEnd('get-ipfs-data');
+    console.timeEnd(`get-ipfs-data-${timerId}`);
     return ipfsFile;
   }
 
@@ -152,12 +172,124 @@ export const getIpfsHash = async (hash) => {
     });
 
     // return the newly fetched ipfs object
-    console.timeEnd('get-ipfs-data');
+    console.timeEnd(`get-ipfs-data-${timerId}`);
     return newIpfsData;
 
   } catch (error) {
     console.error(`Could not fetch IPFS hash ${hash}`);
     console.error(error);
-    console.timeEnd('get-ipfs-data');
+    console.timeEnd(`get-ipfs-data-${timerId}`);
+  }
+}
+
+export const getUser = async (address = constants.AddressZero) => {
+  const timerId = nanoid();
+  console.time(`get-user-${timerId}`);
+
+  const checksummedUserAddress = utils.getAddress(address);
+  const filePath = resolve(__dirname, '.', 'users', `${checksummedUserAddress}.json`);
+
+  // see if we already have it
+  let userFile = {};
+  try {
+    userFile = await loadJsonFile(filePath);
+  } catch (error) {
+    // most likely the file doesn't exist
+  }
+
+  if (userFile.id) {
+    // return locally stored token
+    console.timeEnd(`get-user-${timerId}`);
+    return userFile;
+  }
+
+  try {
+    const bearerToken = await getBearerToken();
+    const query = await graphQL(
+      getUserQuery,
+      { address: checksummedUserAddress },
+      `${process.env.COLONYSERVER_ADDRESS}/graphql`,
+      { authorization: `Bearer ${bearerToken}` },
+    );
+
+    if (query && query.data && query.data.user) {
+      // write the user file locally
+      await writeUserToFile({
+        address: checksummedUserAddress,
+        data: query.data.user,
+      });
+
+      // pre-fetch the user's avatar if one exists
+      if (query.data.user.profile.avatarHash) {
+        await getIpfsHash(query.data.user.profile.avatarHash);
+      }
+
+      // pre-fetch any tokens that the user might have stored
+      if (query.data.user.tokenAddresses && query.data.user.tokenAddresses.length) {
+        await Promise.all(
+          query.data.user.tokenAddresses.map(async (tokenAddress) => await getToken(tokenAddress)),
+        );
+      }
+
+      // return the newly fetched user object
+      console.timeEnd(`get-user-${timerId}`);
+      return query.data.user;
+    }
+
+    throw new Error(`User with address ${checksummedUserAddress} was not found!`);
+
+  } catch (error) {
+    console.error(`Could not fetch user`);
+    console.error(error);
+    console.timeEnd(`get-user-${timerId}`);
+  }
+}
+
+export const getColonySubscribers = async (address = constants.AddressZero) => {
+  const timerId = nanoid();
+  console.time(`get-colony-members-${timerId}`);
+
+  const checksummedColonyAddress = utils.getAddress(address);
+
+  try {
+    const bearerToken = await getBearerToken();
+    const query = await graphQL(
+      getColonyMembersQuery,
+      { address: checksummedColonyAddress },
+      `${process.env.COLONYSERVER_ADDRESS}/graphql`,
+      { authorization: `Bearer ${bearerToken}` },
+    );
+
+    if (query && query.data && query.data.subscribedUsers && query.data.subscribedUsers.length) {
+
+      await Promise.all(
+        query.data.subscribedUsers.map(
+          async (user) => {
+            // pre-fetch the user's avatar if one exists
+            if (user.profile.avatarHash) {
+              await getIpfsHash(user.profile.avatarHash);
+            }
+
+            // pre-fetch any tokens that the user might have stored
+            if (user.tokenAddresses && user.tokenAddresses.length) {
+              await Promise.all(
+                user.tokenAddresses.map(async (tokenAddress) => await getToken(tokenAddress)),
+              );
+            }
+          },
+        ),
+      );
+
+      // return the newly fetched user object
+      console.timeEnd(`get-colony-members-${timerId}`);
+      return query.data.subscribedUsers;
+    }
+
+    throw new Error(`Colony with address ${checksummedColonyAddress} was not found!`);
+
+  } catch (error) {
+    console.error(`Could not fetch colony`);
+    console.error(error);
+    console.timeEnd(`get-colony-members-${timerId}`);
   }
 }
