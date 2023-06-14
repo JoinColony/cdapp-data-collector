@@ -7,7 +7,13 @@ import graphQL from './graphQl.js';
 import { sortMetadataByTimestamp } from './utils.js';
 import { getToken, getIpfsHash, getColonySubscribers } from './helpers.js';
 
-import { getColony, getExtensionEvents, getActionEvents } from './queries.js';
+import {
+  getColony,
+  getExtensionEvents,
+  getActionEvents,
+  getPermissionsEvents,
+  getHistoricColonyExtensions,
+} from './queries.js';
 
 dotenv.config();
 utils.Logger.setLogLevel(utils.Logger.levels.ERROR);
@@ -183,6 +189,27 @@ const run = async () => {
       // extensions
       console.time(`colony-${colonyId}-extension-data`);
 
+      const extensionsHashMap = {
+        [colonyJS.getExtensionHash('OneTxPayment')]: 'OneTxPayment',
+        [colonyJS.getExtensionHash('VotingReputation')]: 'VotingReputation',
+        [colonyJS.getExtensionHash('CoinMachine')]: 'CoinMachine',
+        [colonyJS.getExtensionHash('Whitelist')]: 'Whitelist',
+      }
+
+      // display purpouses only
+      // can be removed/disabled if it becomes a burden
+      const {
+        data: {
+          colonyExtensions: historicColonyExtensions = [],
+        } = {},
+      } = await graphQL(
+        getHistoricColonyExtensions,
+        {
+          colonyAddress: currentColonyClient.address.toLowerCase(),
+        },
+        process.env.SUBGRAPH_ADDRESS,
+      );
+
       const currentColonyExtensions = {};
       await Promise.all(
         ['OneTxPayment', 'VotingReputation'].map(async (extensionId) => {
@@ -229,19 +256,19 @@ const run = async () => {
               initialized = !!extensionInitialisedEvents.length;
             }
 
-            const permissions = [];
-            await Promise.all(
-              [0, 1, 2, 3, 5, 6].map(async (role) => {
-                const roleExists = await currentColonyClient.hasUserRole(
-                  extensionAddress,
-                  1, // root domain
-                  role,
-                );
-                if (roleExists) {
-                  permissions.push(role);
-                }
-              }),
-            );
+            // const permissions = [];
+            // await Promise.all(
+            //   [0, 1, 2, 3, 5, 6].map(async (role) => {
+            //     const roleExists = await currentColonyClient.hasUserRole(
+            //       extensionAddress,
+            //       1, // root domain
+            //       role,
+            //     );
+            //     if (roleExists) {
+            //       permissions.push(role);
+            //     }
+            //   }),
+            // );
 
             currentColonyExtensions[utils.getAddress(extensionAddress)] = {
               address: utils.getAddress(extensionAddress),
@@ -252,7 +279,7 @@ const run = async () => {
               installedBy: receipt.from,
               installedAt: timestamp,
               version: version.toNumber(),
-              permissions: permissions.sort(),
+              // permissions: permissions.sort(),
             };
           }
         }),
@@ -266,10 +293,10 @@ const run = async () => {
         console.log('Chain Extension Installed By:', extension.installedBy);
         console.log('Chain Extension Installed At:', extension.installedAt);
         console.log('Chain Extension Version:', extension.version);
-        console.log(
-          'Chain Extension Roles:',
-          extension.permissions.map(role => colonyJS.ColonyRole[role]),
-        );
+        // console.log(
+        //   'Chain Extension Roles:',
+        //   extension.permissions.map(role => colonyJS.ColonyRole[role]),
+        // );
         if (extension.deprecated) {
           console.log('Chain Extension Deprecated:', extension.deprecated);
         }
@@ -277,7 +304,6 @@ const run = async () => {
 
       console.log();
       console.timeEnd(`colony-${colonyId}-extension-data`);
-
 
       // colony server data
       console.time(`colony-${colonyId}-server-data`);
@@ -402,6 +428,132 @@ const run = async () => {
 
       console.log();
       console.timeEnd(`colony-${colonyId}-actions-data`);
+
+      // user permissions
+      console.time(`colony-${colonyId}-permissions`);
+
+      console.log();
+      let shouldFetchPermissionsEvents = true;
+      let currentColonyPermissionEvents = [];
+      while (shouldFetchPermissionsEvents) {
+        const {
+          data: {
+            events: permissionEvents
+          } = {}
+        } = await graphQL(
+          getPermissionsEvents,
+          {
+            colonyAddress: currentColonyClient.address.toLowerCase(),
+            first: 50,
+            skip: currentColonyPermissionEvents.length,
+          },
+          process.env.SUBGRAPH_ADDRESS,
+        );
+
+        if (permissionEvents.length) {
+          currentColonyPermissionEvents = [
+            ...currentColonyPermissionEvents,
+            ...permissionEvents,
+          ];
+        } else {
+          shouldFetchPermissionsEvents = false;
+        }
+
+        console.log(`Fetched ${currentColonyPermissionEvents.length} permission events...`)
+
+        // throttle requests for 0.2s
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+
+      const reducedColonyPermissions = currentColonyPermissionEvents.reduce(
+        (reducedPermissions, currentPermissionsEvent) => {
+          const basePermissions = {
+            role_0: null,
+            role_1: null,
+            role_2: null,
+            role_3: null,
+            role_5: null,
+            role_6: null,
+          };
+          const values = JSON.parse(currentPermissionsEvent.args);
+          const { user, domainId = 1, role = 0, setTo } = values;
+          const userAddress = utils.getAddress(user);
+
+          // existing role entry
+          if (reducedPermissions[userAddress]) {
+
+            // existing domain entry
+            if (reducedPermissions[userAddress][domainId]) {
+              return {
+                ...reducedPermissions,
+                [userAddress]: {
+                  ...reducedPermissions[userAddress],
+                  [domainId]: {
+                    ...reducedPermissions[userAddress][domainId],
+                    [`role_${role}`]: setTo ? true : null,
+                  },
+                },
+              };
+            }
+
+            // non existing domain entry
+            return {
+              ...reducedPermissions,
+              [userAddress]: {
+                ...reducedPermissions[userAddress],
+                [domainId]: {
+                  ...basePermissions,
+                  [`role_${role}`]: setTo ? true : null,
+                },
+              },
+            };
+          }
+
+          // non existing role entry
+          return {
+            ...reducedPermissions,
+            [userAddress]: {
+              [domainId]: {
+                ...basePermissions,
+                [`role_${role}`]: setTo ? true : null,
+              }
+            }
+          };
+        },
+        {},
+      )
+
+      Object.keys(reducedColonyPermissions).map((addressWithPermissions, colonyPermissionsIndex) => {
+        const permissionsEntry = reducedColonyPermissions[addressWithPermissions];
+
+        // display purpouses only
+        const subscriber = colonySubscribers.find(({ id }) => id === addressWithPermissions);
+        const username = subscriber && subscriber.profile ? subscriber.profile.username : undefined;
+        const extension = historicColonyExtensions.find(({ id }) => id === addressWithPermissions.toLowerCase());
+        const extensionName = extension && extension.hash ? extensionsHashMap[extension.hash] : undefined;
+        // maybe colony and token as well...
+        const displayName = username || extensionName;
+
+        console.log()
+        console.log(`Permission Entry #${colonyPermissionsIndex + 1}`)
+        console.log('Permissioned Address:', addressWithPermissions);
+        if (displayName) {
+          console.log('Permissioned Name:', displayName);
+        }
+        Object.keys(permissionsEntry).map((domainId) => {
+          console.log(
+            `Permissions for Domain #${domainId}:`,
+            Object.keys(permissionsEntry[domainId]).map((roleName) => {
+              if (permissionsEntry[domainId][roleName]) {
+                return parseInt(roleName.replace('role_', ''), 10);
+              }
+            }).filter(entry => entry >= 0),
+          );
+        });
+      });
+
+      console.log();
+      console.timeEnd(`colony-${colonyId}-permissions`);
 
       console.log();
       console.timeEnd(`colony-${colonyId}-fetch`);

@@ -111,6 +111,7 @@ export const getActionEvents = /* GraphQL */ `
           "ColonyFundsMovedBetweenFundingPots(address,uint256,uint256,uint256,address)",
           "DomainMetadata(address,uint256,string)",
           "ColonyRoleSet(address,address,uint256,uint8,bool)",
+          "RecoveryRoleSet(address,bool)",
           "ColonyUpgraded(address,uint256,uint256)",
           "ColonyUpgraded(uint256,uint256)",
           "RecoveryModeEntered(address)",
@@ -124,14 +125,43 @@ export const getActionEvents = /* GraphQL */ `
       address
       transaction {
         hash: id
-        # block {
-        #   id
-        #   timestamp
-        # }
       }
       name
       args
       timestamp
+    }
+  }
+`;
+
+export const getPermissionsEvents = /* GraphQL */ `
+  query PermissionsEvents($colonyAddress: String!, $first: Int = 10, $skip: Int = 0) {
+    events(
+      first: $first,
+      skip: $skip,
+      orderBy: "timestamp",
+      orderDirection: asc,
+      where: {
+        associatedColony_contains: $colonyAddress,
+        name_in: [
+          "ColonyRoleSet(address,address,uint256,uint8,bool)",
+          "RecoveryRoleSet(address,bool)",
+        ]
+      }) {
+      name
+      args
+    }
+  }
+`;
+
+export const getHistoricColonyExtensions = /* GraphQL */ `
+  query HistoricColonyExtensions($colonyAddress: String!) {
+    colonyExtensions(
+      first: 1000,
+      where: {
+        colony_contains: $colonyAddress,
+      }) {
+      id
+      hash
     }
   }
 `;
