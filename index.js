@@ -43,6 +43,9 @@ const run = async () => {
       console.log('Name:', colonyName.slice(0, colonyName.indexOf('.')));
       console.log('ENS Name:', colonyName);
 
+      const colonyVersion = await currentColonyClient.version();
+      console.log('Version:', colonyVersion.toNumber());
+
       // token
       console.log();
 
@@ -542,7 +545,7 @@ const run = async () => {
         }
         Object.keys(permissionsEntry).map((domainId) => {
           console.log(
-            `Permissions for Domain #${domainId}:`,
+            `Permissions in Domain #${domainId}:`,
             Object.keys(permissionsEntry[domainId]).map((roleName) => {
               if (permissionsEntry[domainId][roleName]) {
                 return parseInt(roleName.replace('role_', ''), 10);
