@@ -526,6 +526,8 @@ const run = async () => {
         {},
       )
 
+      console.log();
+
       Object.keys(reducedColonyPermissions).map((addressWithPermissions, colonyPermissionsIndex) => {
         const permissionsEntry = reducedColonyPermissions[addressWithPermissions];
 
@@ -537,20 +539,38 @@ const run = async () => {
         // maybe colony and token as well...
         const displayName = username || extensionName;
 
-        console.log()
-        console.log(`Permission Entry #${colonyPermissionsIndex + 1}`)
-        console.log('Permissioned Address:', addressWithPermissions);
-        if (displayName) {
-          console.log('Permissioned Name:', displayName);
-        }
+        // multiline display
+
+        // console.log()
+        // console.log(`Permission Entry #${colonyPermissionsIndex + 1}`)
+        // console.log('Permissioned Address:', addressWithPermissions);
+        // if (displayName) {
+        //   console.log('Permissioned Name:', displayName);
+        // }
+        // Object.keys(permissionsEntry).map((domainId) => {
+        //   console.log(
+        //     `Permissions in Domain #${domainId}:`,
+        //     Object.keys(permissionsEntry[domainId]).map((roleName) => {
+        //       if (permissionsEntry[domainId][roleName]) {
+        //         return parseInt(roleName.replace('role_', ''), 10);
+        //       }
+        //     }).filter(entry => entry >= 0),
+        //   );
+        // });
+
+        // single line display
+
         Object.keys(permissionsEntry).map((domainId) => {
+          const domainPermissions = Object.keys(permissionsEntry[domainId]).map((roleName) => {
+            if (permissionsEntry[domainId][roleName]) {
+              return parseInt(roleName.replace('role_', ''), 10);
+            }
+          }).filter(entry => entry >= 0);
           console.log(
-            `Permissions in Domain #${domainId}:`,
-            Object.keys(permissionsEntry[domainId]).map((roleName) => {
-              if (permissionsEntry[domainId][roleName]) {
-                return parseInt(roleName.replace('role_', ''), 10);
-              }
-            }).filter(entry => entry >= 0),
+            'Address w/ Permissions:', addressWithPermissions,
+            displayName ? `(${displayName}) Domain:` : 'Domain:',
+            `#${domainId}`,
+            'Roles:', domainPermissions,
           );
         });
       });
