@@ -5,7 +5,12 @@ import colonyJS from './node_modules/@colony/colony-js/dist/cjs/index.js';
 import networkClient from './networkClient.js';
 import graphQL from './graphQl.js';
 import { sortMetadataByTimestamp } from './utils.js';
-import { getToken, getIpfsHash, getColonySubscribers } from './helpers.js';
+import {
+  getToken,
+  getIpfsHash,
+  getColonySubscribers,
+  detectActionType,
+} from './helpers.js';
 
 import {
   getColony,
@@ -419,14 +424,27 @@ const run = async () => {
         {},
       )
 
+      console.log()
+
       Object.keys(reducedColonyActions).map((colonyActionTransactionHash, colonyActionIndex) => {
         const colonyAction = reducedColonyActions[colonyActionTransactionHash];
-        console.log()
-        console.log(`Colony Action #${colonyActionIndex + 1}`)
-        console.log('Colony Action Name:', colonyAction.name);
-        console.log('Colony Action TX:', colonyAction.transactionHash);
-        console.log('Colony Action Time:', colonyAction.timestamp);
-        console.log('Colony Action Values:', colonyAction.values);
+
+        // multi line display
+
+        // console.log()
+        // console.log(`Colony Action #${colonyActionIndex + 1}`)
+        // console.log('Colony Action Name:', colonyAction.name);
+        // console.log('Colony Action TX:', colonyAction.transactionHash);
+        // console.log('Colony Action Time:', colonyAction.timestamp);
+        // console.log('Colony Action Values:', colonyAction.values);
+
+        // single line display
+
+        console.log(
+          `Action #${colonyActionIndex + 1}`,
+          'TX:', colonyAction.transactionHash,
+          'Type:', detectActionType(colonyAction.values),
+        );
       });
 
       console.log();

@@ -20,6 +20,23 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+const ColonyActionType = {
+  ColonyEdit: 'COLONY_EDIT',
+  CreateDomain: 'CREATE_DOMAIN',
+  EditDomain: 'EDIT_DOMAIN',
+  EmitDomainReputationPenalty: 'EMIT_DOMAIN_REPUTATION_PENALTY',
+  EmitDomainReputationReward: 'EMIT_DOMAIN_REPUTATION_REWARD',
+  Generic: 'GENERIC',
+  MintTokens: 'MINT_TOKENS',
+  MoveFunds: 'MOVE_FUNDS',
+  Payment: 'PAYMENT',
+  Recovery: 'RECOVERY',
+  SetUserRoles: 'SET_USER_ROLES',
+  UnlockToken: 'UNLOCK_TOKEN',
+  VersionUpgrade: 'VERSION_UPGRADE',
+  WrongColony: 'WRONG_COLONY',
+};
+
 export const getToken = async (address = constants.AddressZero) => {
   const timerId = nanoid();
   console.time(`get-token-${timerId}`);
@@ -231,3 +248,50 @@ export const getColonySubscribers = async (address = constants.AddressZero) => {
     console.timeEnd(`get-colony-members-${timerId}`);
   }
 }
+
+export const detectActionType = (actionEvents) => {
+  for (let eventsIndex = 0; eventsIndex < actionEvents.length; eventsIndex += 1) {
+    const { name: eventSignature, amount } = actionEvents[eventsIndex];
+
+    switch (eventSignature) {
+      // todo one tx paymnet
+      case 'ColonyRoleSet(address,address,uint256,uint8,bool)':
+      case 'ColonyRoleSet(address,uint256,uint8,bool)':
+      case 'RecoveryRoleSet(address,bool)':
+        return ColonyActionType.SetUserRoles;
+      case 'TokensMinted(address,address,uint256)':
+        return ColonyActionType.MintTokens;
+      case 'DomainAdded(address,uint256)':
+        return ColonyActionType.CreateDomain;
+      case 'DomainMetadata(address,uint256,string)': {
+        const domainAddedEvent = actionEvents.find(({ name }) => name === 'DomainAdded(address,uint256)');
+        if (domainAddedEvent) {
+          return ColonyActionType.CreateDomain;
+        }
+        return ColonyActionType.EditDomain;
+      }
+      case 'TokenUnlocked(address)':
+      case 'TokenUnlocked()':
+        return ColonyActionType.UnlockToken;
+      case 'ColonyFundsMovedBetweenFundingPots(address,uint256,uint256,uint256,address)':
+        return ColonyActionType.MoveFunds;
+      case 'ColonyMetadata(address,string)':
+          return ColonyActionType.ColonyEdit;
+      case 'ColonyUpgraded(address,uint256,uint256)':
+        return ColonyActionType.VersionUpgrade;
+      case 'RecoveryModeEntered(address)':
+        return ColonyActionType.Recovery;
+      case 'ArbitraryReputationUpdate(address,address,uint256,int256)': {
+        const negativeAmount = amount.includes('-');
+        if (negativeAmount) {
+          return ColonyActionType.EmitDomainReputationPenalty;
+        }
+        return ColonyActionType.EmitDomainReputationReward;
+      }
+      default:
+        return ColonyActionType.Generic;
+    }
+
+  }
+};
+
