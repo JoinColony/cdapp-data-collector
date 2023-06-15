@@ -478,7 +478,7 @@ const run = async () => {
                       getActionEvents,
                       {
                         colonyAddress: currentColonyClient.address.toLowerCase(),
-                        first: 50,
+                        first: parseInt(process.env.SUBGRAPH_BATCH_SIZE, 10),
                         skip: currentColonyActions.length,
                       },
                       process.env.SUBGRAPH_ADDRESS,
@@ -561,7 +561,7 @@ const run = async () => {
                       getOneTxPayments,
                       {
                         colonyAddress: currentColonyClient.address.toLowerCase(),
-                        first: 50,
+                        first: parseInt(process.env.SUBGRAPH_BATCH_SIZE, 10),
                         skip: currentColonyOneTxs.length,
                       },
                       process.env.SUBGRAPH_ADDRESS,
@@ -640,7 +640,7 @@ const run = async () => {
                       getPermissionsEvents,
                       {
                         colonyAddress: currentColonyClient.address.toLowerCase(),
-                        first: 50,
+                        first: parseInt(process.env.SUBGRAPH_BATCH_SIZE, 10),
                         skip: currentColonyPermissionEvents.length,
                       },
                       process.env.SUBGRAPH_ADDRESS,

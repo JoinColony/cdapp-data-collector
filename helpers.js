@@ -5,6 +5,7 @@ import { loadJsonFile } from 'load-json-file';
 import { utils, constants } from 'ethers';
 import colonyJS from './node_modules/@colony/colony-js/dist/cjs/index.js';
 import minimist from 'minimist';
+import dotenv from 'dotenv';
 
 import { writeTokenToFile, writeIpfsToFile, writeUserToFile } from './utils.js';
 import provider from './provider.js';
@@ -16,6 +17,8 @@ import {
   getUser as getUserQuery,
   getColonyMembers as getColonyMembersQuery,
 } from './queries.js';
+
+dotenv.config();
 
 const args = minimist(process.argv);
 
@@ -274,5 +277,5 @@ export const runBlock = async (
 }
 
 // throttle requests for 0.2s by default
-export const throttle = async (timeout = 200) =>
+export const throttle = async (timeout = parseInt(process.env.SUBGRAPH_BATCH_TIMEOUT, 10)) =>
   await new Promise(resolve => setTimeout(resolve, timeout));
