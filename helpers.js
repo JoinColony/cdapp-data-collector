@@ -134,69 +134,6 @@ export const getIpfsHash = async (hash) => await runBlock(
   },
 );
 
-export const getUser = async (address = constants.AddressZero) => {
-  const timerId = nanoid();
-  console.time(`get-user-${timerId}`);
-
-  const checksummedUserAddress = utils.getAddress(address);
-  const filePath = resolve(__dirname, '.', 'users', `${checksummedUserAddress}.json`);
-
-  // see if we already have it
-  let userFile = {};
-  try {
-    userFile = await loadJsonFile(filePath);
-  } catch (error) {
-    // most likely the file doesn't exist
-  }
-
-  if (userFile.id) {
-    // return locally stored token
-    console.timeEnd(`get-user-${timerId}`);
-    return userFile;
-  }
-
-  try {
-    const bearerToken = await getBearerToken();
-    const query = await graphQL(
-      getUserQuery,
-      { address: checksummedUserAddress },
-      `${process.env.COLONYSERVER_ADDRESS}/graphql`,
-      { authorization: `Bearer ${bearerToken}` },
-    );
-
-    if (query && query.data && query.data.user) {
-      // write the user file locally
-      await writeUserToFile({
-        address: checksummedUserAddress,
-        data: query.data.user,
-      });
-
-      // pre-fetch the user's avatar if one exists
-      if (query.data.user.profile.avatarHash) {
-        await getIpfsHash(query.data.user.profile.avatarHash);
-      }
-
-      // pre-fetch any tokens that the user might have stored
-      if (query.data.user.tokenAddresses && query.data.user.tokenAddresses.length) {
-        await Promise.all(
-          query.data.user.tokenAddresses.map(async (tokenAddress) => await getToken(tokenAddress)),
-        );
-      }
-
-      // return the newly fetched user object
-      console.timeEnd(`get-user-${timerId}`);
-      return query.data.user;
-    }
-
-    throw new Error(`User with address ${checksummedUserAddress} was not found!`);
-
-  } catch (error) {
-    console.error(`Could not fetch user`);
-    console.error(error);
-    console.timeEnd(`get-user-${timerId}`);
-  }
-}
-
 export const getColonySubscribers = async (address = constants.AddressZero) => await runBlock(
   `get-colony-members-${nanoid()}`,
   async () => {
