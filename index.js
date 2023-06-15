@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import { utils, constants } from 'ethers';
 import colonyJS from './node_modules/@colony/colony-js/dist/cjs/index.js';
+import minimist from 'minimist';
 
 import networkClient from './networkClient.js';
 import graphQL from './graphQl.js';
@@ -23,7 +24,20 @@ import {
 dotenv.config();
 utils.Logger.setLogLevel(utils.Logger.levels.ERROR);
 
+const args = minimist(process.argv);
+
 const run = async () => {
+
+  if (!args.endBlock) {
+    throw new Error('Please provide an end block using the "--endBlock <blockNo>" argument');
+  }
+
+  console.log();
+  const currentBlock = await networkClient.provider.getBlock('latest');
+  console.log('Current Block:', currentBlock.number);
+  // todo implement actual logic
+  console.log('Fetching up to Block:', args.endBlock);
+  console.log('Block difference:', currentBlock.number - args.endBlock);
 
   console.time('total-runtime');
 
@@ -224,7 +238,7 @@ const run = async () => {
 
           console.log(
             `Domain #${subgraphDomainChainId}`,
-            'Name: ', subgraphDomainMetadataValue.domainName || subgraphDomainMetadataValue.data && subgraphDomainMetadataValue.data.domainName || subgraphDomainName,
+            'Name:', subgraphDomainMetadataValue.domainName || subgraphDomainMetadataValue.data && subgraphDomainMetadataValue.data.domainName || subgraphDomainName,
             'Color:', subgraphDomainMetadataValue.domainColor || subgraphDomainMetadataValue.data && subgraphDomainMetadataValue.data.domainColor
           );
         }
