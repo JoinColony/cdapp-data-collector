@@ -11,6 +11,7 @@ import {
   getIpfsHash,
   getColonySubscribers,
   detectActionType,
+  helpBanner,
 } from './helpers.js';
 
 import {
@@ -28,8 +29,17 @@ const args = minimist(process.argv);
 
 const run = async () => {
 
+  if (args.help) {
+    await helpBanner();
+    process.exit(0);
+  }
+
   if (!args.endBlock) {
-    throw new Error('Please provide an end block using the "--endBlock <blockNo>" argument');
+    console.log();
+    console.error('Please provide an end block using the "--endBlock <blockNo>" argument');
+    console.log();
+    console.error('Run: npm run start --help for usage information');
+    process.exit(1);
   }
 
   console.log();
@@ -273,7 +283,7 @@ const run = async () => {
 
       const currentColonyExtensions = {};
       await Promise.all(
-        ['OneTxPayment', 'VotingReputation'].map(async (extensionId) => {
+        ['OneTxPayment', 'VotingReputation', 'CoinMachine', 'Whitelist'].map(async (extensionId) => {
           const extensionHash = colonyJS.getExtensionHash(extensionId);
           const extensionAddress = await networkClient.getExtensionInstallation(extensionHash, currentColonyClient.address);
           if (extensionAddress !== constants.AddressZero) {

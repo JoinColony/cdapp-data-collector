@@ -295,3 +295,23 @@ export const detectActionType = (actionEvents) => {
   }
 };
 
+export const helpBanner = async () => {
+  const {
+    name,
+    version,
+    description,
+  } = await loadJsonFile(resolve(__dirname, '.', 'package.json'));
+  console.log();
+  console.log(name, 'version', version);
+  console.log(description);
+  console.log();
+  console.log('Usage: npm run start --endblock <blockNo> [OPTIONS]');
+  console.log();
+  console.log('Options:');
+  console.log('  --endBlock <blockNo>', "\t", 'Block number to fetch chain and subgraph data up to. This is REQUIRED');
+  // todo -- currently they are on by default
+  console.log('  --showTimers', "\t\t", 'Show run timers for various actions. Useful to gauge run durations');
+  // todo
+  console.log('  --dryRun', "\t\t", 'Just fetch data, don\'t write it to the database');
+  console.log('  --help', "\t\t", 'This message right here');
+};
