@@ -133,13 +133,27 @@ const run = async () => {
 
             // fetch all tokens this colony has
             if (colonyTokens && colonyTokens.length) {
+
+              console.log();
+
               for (let colonySavedTokenIndex = 0; colonySavedTokenIndex < colonyTokens.length; colonySavedTokenIndex += 1) {
-                console.log();
                 const colonySavedToken = await getToken(colonyTokens[colonySavedTokenIndex]);
-                console.log('Saved Token Address:', colonySavedToken.address);
-                console.log('Saved Token Name:', colonySavedToken.name);
-                console.log('Saved Token Symbol:', colonySavedToken.symbol);
-                console.log('Saved Token Decimals:', colonySavedToken.decimals);
+
+                // multi line display
+
+                // console.log();
+                // console.log('Saved Token Address:', colonySavedToken.address);
+                // console.log('Saved Token Name:', colonySavedToken.name);
+                // console.log('Saved Token Symbol:', colonySavedToken.symbol);
+                // console.log('Saved Token Decimals:', colonySavedToken.decimals);
+
+                // single line display
+
+                console.log(
+                  'Token Address:', colonySavedToken.address,
+                  'Name:', colonySavedToken.name,
+                  `(${colonySavedToken.symbol})`,
+                );
               }
             }
           }
@@ -148,6 +162,8 @@ const run = async () => {
 
       // domains
       if (currentColonyDomains) {
+
+        console.log();
 
         for (let subgraphDomainId = 0; subgraphDomainId < currentColonyDomains.length; subgraphDomainId += 1) {
           const {
@@ -160,34 +176,57 @@ const run = async () => {
           const [mostRecentDomainMetadataHistory] = subgraphDomainMetadataHistory.sort(sortMetadataByTimestamp);
           const subgraphDomainMetadataHash = subgraphDomainMetadata || (mostRecentDomainMetadataHistory && mostRecentDomainMetadataHistory.metadata);
 
-          console.log();
-          console.log('Subgraph Domain Id:', subgraphDomainChainId);
-          console.log('Subgraph Domain Fallback Name:', subgraphDomainName);
+          // multi line display
 
+          // console.log();
+          // console.log('Subgraph Domain Id:', subgraphDomainChainId);
+          // console.log('Subgraph Domain Fallback Name:', subgraphDomainName);
+
+        //   if (subgraphDomainMetadataHash) {
+        //     const subgraphDomainMetadataValue = await getIpfsHash(subgraphDomainMetadataHash);
+
+        //     if (subgraphDomainMetadataValue) {
+        //       const {
+        //         domainName: OLD_subgraphDomainMetadataName,
+        //         domainColor: OLD_subgraphDomainMetadataColor,
+        //         domainPurpose: OLD_subgraphDomainMetadataPurpose,
+        //         data: {
+        //           domainName: subgraphDomainMetadataName,
+        //           domainColor: subgraphDomainMetadataColor,
+        //           domainPurpose: subgraphDomainMetadataPurpose,
+        //         } = {},
+        //       } = subgraphDomainMetadataValue;
+
+        //       console.log('Subgraph Domain Name:', subgraphDomainMetadataName || OLD_subgraphDomainMetadataName);
+        //       console.log('Subgraph Domain Color:', subgraphDomainMetadataColor || OLD_subgraphDomainMetadataColor);
+        //       console.log('Subgraph Domain Description:', subgraphDomainMetadataPurpose || OLD_subgraphDomainMetadataPurpose);
+        //     }
+        //   } else {
+        //     console.log('Subgraph Domain Name:', undefined);
+        //     console.log('Subgraph Domain Color:', undefined);
+        //     console.log('Subgraph Domain Description:', undefined);
+        //   }
+        // }
+
+          // single line display
+
+          let subgraphDomainMetadataValue = {
+            data: {
+              domainName: false,
+              domainColor: false,
+            },
+            domainName: false,
+            domainColor: false,
+          };
           if (subgraphDomainMetadataHash) {
-            const subgraphDomainMetadataValue = await getIpfsHash(subgraphDomainMetadataHash);
-
-            if (subgraphDomainMetadataValue) {
-              const {
-                domainName: OLD_subgraphDomainMetadataName,
-                domainColor: OLD_subgraphDomainMetadataColor,
-                domainPurpose: OLD_subgraphDomainMetadataPurpose,
-                data: {
-                  domainName: subgraphDomainMetadataName,
-                  domainColor: subgraphDomainMetadataColor,
-                  domainPurpose: subgraphDomainMetadataPurpose,
-                } = {},
-              } = subgraphDomainMetadataValue;
-
-              console.log('Subgraph Domain Name:', subgraphDomainMetadataName || OLD_subgraphDomainMetadataName);
-              console.log('Subgraph Domain Color:', subgraphDomainMetadataColor || OLD_subgraphDomainMetadataColor);
-              console.log('Subgraph Domain Description:', subgraphDomainMetadataPurpose || OLD_subgraphDomainMetadataPurpose);
-            }
-          } else {
-            console.log('Subgraph Domain Name:', undefined);
-            console.log('Subgraph Domain Color:', undefined);
-            console.log('Subgraph Domain Description:', undefined);
+            subgraphDomainMetadataValue = await getIpfsHash(subgraphDomainMetadataHash);
           }
+
+          console.log(
+            `Domain #${subgraphDomainChainId}`,
+            'Name: ', subgraphDomainMetadataValue.domainName || subgraphDomainMetadataValue.data && subgraphDomainMetadataValue.data.domainName || subgraphDomainName,
+            'Color:', subgraphDomainMetadataValue.domainColor || subgraphDomainMetadataValue.data && subgraphDomainMetadataValue.data.domainColor
+          );
         }
       }
 
@@ -293,21 +332,32 @@ const run = async () => {
         }),
       )
 
+      console.log();
+
       Object.keys(currentColonyExtensions).map(extensionAddress => {
         const extension = currentColonyExtensions[extensionAddress];
-        console.log();
-        console.log('Chain Extension Address:', extension.address);
-        console.log('Chain Extension Name:', extension.name);
-        console.log('Chain Extension Installed By:', extension.installedBy);
-        console.log('Chain Extension Installed At:', extension.installedAt);
-        console.log('Chain Extension Version:', extension.version);
-        // console.log(
-        //   'Chain Extension Roles:',
-        //   extension.permissions.map(role => colonyJS.ColonyRole[role]),
-        // );
-        if (extension.deprecated) {
-          console.log('Chain Extension Deprecated:', extension.deprecated);
-        }
+        // multi line display
+
+        // console.log();
+        // console.log('Chain Extension Address:', extension.address);
+        // console.log('Chain Extension Name:', extension.name);
+        // console.log('Chain Extension Installed By:', extension.installedBy);
+        // console.log('Chain Extension Installed At:', extension.installedAt);
+        // console.log('Chain Extension Version:', extension.version);
+        // // console.log(
+        // //   'Chain Extension Roles:',
+        // //   extension.permissions.map(role => colonyJS.ColonyRole[role]),
+        // // );
+        // if (extension.deprecated) {
+        //   console.log('Chain Extension Deprecated:', extension.deprecated);
+        // }
+
+        // single line display
+        console.log(
+          'Extension Address:', extension.address,
+          'Name:', extension.name,
+          'Version:', extension.version,
+        );
       });
 
       console.log();
@@ -320,25 +370,44 @@ const run = async () => {
 
       // subscribers
       if (colonySubscribers && colonySubscribers.length) {
+        console.log()
+
         for (let colonySubscriberIndex = 0; colonySubscriberIndex < colonySubscribers.length; colonySubscriberIndex += 1) {
-          console.log()
-          console.log(`Subscriber #${colonySubscriberIndex + 1}`)
-          console.log('Colony Subscriber Display Address:', colonySubscribers[colonySubscriberIndex].id);
-          console.log('Colony Subscriber Name:', colonySubscribers[colonySubscriberIndex].profile.username);
+          // multi line display
 
-          if (colonySubscribers[colonySubscriberIndex].profile.displayName) {
-            console.log('Colony Subscriber Display Name:', colonySubscribers[colonySubscriberIndex].profile.displayName);
-          }
+          // console.log()
+          // console.log(`Subscriber #${colonySubscriberIndex + 1}`)
+          // console.log('Colony Subscriber Display Address:', colonySubscribers[colonySubscriberIndex].id);
+          // console.log('Colony Subscriber Name:', colonySubscribers[colonySubscriberIndex].profile.username);
 
+          // if (colonySubscribers[colonySubscriberIndex].profile.displayName) {
+          //   console.log('Colony Subscriber Display Name:', colonySubscribers[colonySubscriberIndex].profile.displayName);
+          // }
+
+          // if (colonySubscribers[colonySubscriberIndex].profile.avatarHash) {
+          //   const subscriberAvatar = await getIpfsHash(colonySubscribers[colonySubscriberIndex].profile.avatarHash);
+
+          //   if (subscriberAvatar.image) {
+          //     console.log('Colony Subscriber Avatar:', subscriberAvatar.image.slice(0, 40), '...');
+          //   } else {
+          //     console.log('Colony Subscriber Avatar Hash:', colonySubscribers[colonySubscriberIndex].profile.avatarHash);
+          //   }
+          // }
+
+          // single line display
+
+          let subscriberAvatar = { image: false };
           if (colonySubscribers[colonySubscriberIndex].profile.avatarHash) {
-            const subscriberAvatar = await getIpfsHash(colonySubscribers[colonySubscriberIndex].profile.avatarHash);
-
-            if (subscriberAvatar.image) {
-              console.log('Colony Subscriber Avatar:', subscriberAvatar.image.slice(0, 40), '...');
-            } else {
-              console.log('Colony Subscriber Avatar Hash:', colonySubscribers[colonySubscriberIndex].profile.avatarHash);
-            }
+            subscriberAvatar = await getIpfsHash(colonySubscribers[colonySubscriberIndex].profile.avatarHash);
           }
+
+          console.log(
+            `Subscriber #${colonySubscriberIndex + 1}`,
+            'Address:', colonySubscribers[colonySubscriberIndex].id,
+            'Name:', colonySubscribers[colonySubscriberIndex].profile.username,
+            colonySubscribers[colonySubscriberIndex].profile.displayName ? `(${colonySubscribers[colonySubscriberIndex].profile.displayName}) Avatar:` : 'Avatar:',
+            !!subscriberAvatar.image,
+          );
         }
       }
 
