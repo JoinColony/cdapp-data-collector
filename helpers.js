@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import { loadJsonFile } from 'load-json-file';
 import { utils, constants } from 'ethers';
 import colonyJS from './node_modules/@colony/colony-js/dist/cjs/index.js';
+import minimist from 'minimist';
 
 import { writeTokenToFile, writeIpfsToFile, writeUserToFile } from './utils.js';
 import provider from './provider.js';
@@ -15,6 +16,8 @@ import {
   getUser as getUserQuery,
   getColonyMembers as getColonyMembersQuery,
 } from './queries.js';
+
+const args = minimist(process.argv);
 
 // note that __filename and __dirname don't exist in node if package json declares "module"
 const __filename = fileURLToPath(import.meta.url);
@@ -37,105 +40,99 @@ const ColonyActionType = {
   WrongColony: 'WRONG_COLONY',
 };
 
-export const getToken = async (address = constants.AddressZero) => {
-  const timerId = nanoid();
-  console.time(`get-token-${timerId}`);
+export const getToken = async (address = constants.AddressZero) => await runBlock(
+  `get-token-${nanoid()}`,
+  async () => {
+    const checksummedTokenAddress = utils.getAddress(address);
+    const tokenFilePath = resolve(__dirname, '.', 'tokens', `${checksummedTokenAddress}.json`);
 
-  const checksummedTokenAddress = utils.getAddress(address);
-  const tokenFilePath = resolve(__dirname, '.', 'tokens', `${checksummedTokenAddress}.json`);
-
-  // see if we already have it
-  let tokensFile = {};
-  try {
-    tokensFile = await loadJsonFile(tokenFilePath);
-  } catch (error) {
-    // most likely the file doesn't exist
-  }
-  if (tokensFile.address) {
-    // return locally stored token
-    console.timeEnd(`get-token-${timerId}`);
-    return tokensFile;
-  }
-
-  let newToken = {
-    address: constants.AddressZero,
-    name: 'xDAI Token',
-    symbol: 'xDAI',
-    decimals: 18,
-  };
-
-  try {
-    // fetch it from the chain, unless is the native chain token (XDAI, ETH)
-    if (checksummedTokenAddress !== constants.AddressZero) {
-      const tokenClient = await colonyJS.getTokenClient(
-        checksummedTokenAddress,
-        provider,
-      );
-
-      const newTokenName = await tokenClient.name();
-      const newTokenSymbol = await tokenClient.symbol();
-      const newTokenDecimals = await tokenClient.decimals();
-
-      newToken = {
-        address: checksummedTokenAddress,
-        name: newTokenName,
-        symbol: newTokenSymbol,
-        decimals: newTokenDecimals,
-      };
+    // see if we already have it
+    let tokensFile = {};
+    try {
+      tokensFile = await loadJsonFile(tokenFilePath);
+    } catch (error) {
+      // most likely the file doesn't exist
+    }
+    if (tokensFile.address) {
+      // return locally stored token
+      return tokensFile;
     }
 
-    // save it locally
-    await writeTokenToFile(newToken);
+    let newToken = {
+      address: constants.AddressZero,
+      name: 'xDAI Token',
+      symbol: 'xDAI',
+      decimals: 18,
+    };
 
-    // return the newly fetched token
-    console.timeEnd(`get-token-${timerId}`);
-    return newToken;
+    try {
+      // fetch it from the chain, unless is the native chain token (XDAI, ETH)
+      if (checksummedTokenAddress !== constants.AddressZero) {
+        const tokenClient = await colonyJS.getTokenClient(
+          checksummedTokenAddress,
+          provider,
+        );
 
-  } catch (error) {
-    console.error(`Could not fetch token ${address} from the chain`);
-    console.error(error);
-    console.timeEnd(`get-token-${timerId}`);
-  }
-};
+        const newTokenName = await tokenClient.name();
+        const newTokenSymbol = await tokenClient.symbol();
+        const newTokenDecimals = await tokenClient.decimals();
 
-export const getIpfsHash = async (hash) => {
-  const timerId = nanoid();
-  console.time(`get-ipfs-data-${timerId}`);
+        newToken = {
+          address: checksummedTokenAddress,
+          name: newTokenName,
+          symbol: newTokenSymbol,
+          decimals: newTokenDecimals,
+        };
+      }
 
-  const filePath = resolve(__dirname, '.', 'ipfs', `${hash}.json`);
+      // save it locally
+      await writeTokenToFile(newToken);
 
-  // see if we already have it
-  let ipfsFile = {};
-  try {
-    ipfsFile = await loadJsonFile(filePath);
-  } catch (error) {
-    // most likely the file doesn't exist
-  }
-  if (Object.keys(ipfsFile).length) {
-    // return locally stored ipfs object
-    console.timeEnd(`get-ipfs-data-${timerId}`);
-    return ipfsFile;
-  }
+      // return the newly fetched token
+      return newToken;
 
-  try {
-    const newIpfsData = await ipfs(hash);
+    } catch (error) {
+      console.error(`Could not fetch token ${address} from the chain`);
+      console.error(error);
+    }
+  },
+);
 
-    // save it locally
-    await writeIpfsToFile({
-      hash,
-      data: newIpfsData,
-    });
+export const getIpfsHash = async (hash) => await runBlock(
+  `get-ipfs-data-${nanoid()}`,
+  async () => {
+    const filePath = resolve(__dirname, '.', 'ipfs', `${hash}.json`);
 
-    // return the newly fetched ipfs object
-    console.timeEnd(`get-ipfs-data-${timerId}`);
-    return newIpfsData;
+    // see if we already have it
+    let ipfsFile = {};
+    try {
+      ipfsFile = await loadJsonFile(filePath);
+    } catch (error) {
+      // most likely the file doesn't exist
+    }
+    if (Object.keys(ipfsFile).length) {
+      // return locally stored ipfs object
+      return ipfsFile;
+    }
 
-  } catch (error) {
-    console.error(`Could not fetch IPFS hash ${hash}`);
-    console.error(error);
-    console.timeEnd(`get-ipfs-data-${timerId}`);
-  }
-}
+    try {
+      const newIpfsData = await ipfs(hash);
+
+      // save it locally
+      await writeIpfsToFile({
+        hash,
+        data: newIpfsData,
+      });
+
+      // return the newly fetched ipfs object
+      return newIpfsData;
+
+    } catch (error) {
+      console.error(`Could not fetch IPFS hash ${hash}`);
+      console.error(error);
+    }
+  },
+);
 
 export const getUser = async (address = constants.AddressZero) => {
   const timerId = nanoid();
@@ -200,54 +197,52 @@ export const getUser = async (address = constants.AddressZero) => {
   }
 }
 
-export const getColonySubscribers = async (address = constants.AddressZero) => {
-  const timerId = nanoid();
-  console.time(`get-colony-members-${timerId}`);
+export const getColonySubscribers = async (address = constants.AddressZero) => await runBlock(
+  `get-colony-members-${nanoid()}`,
+  async () => {
+    const checksummedColonyAddress = utils.getAddress(address);
 
-  const checksummedColonyAddress = utils.getAddress(address);
-
-  try {
-    const bearerToken = await getBearerToken();
-    const query = await graphQL(
-      getColonyMembersQuery,
-      { address: checksummedColonyAddress },
-      `${process.env.COLONYSERVER_ADDRESS}/graphql`,
-      { authorization: `Bearer ${bearerToken}` },
-    );
-
-    if (query && query.data && query.data.subscribedUsers && query.data.subscribedUsers.length) {
-
-      await Promise.all(
-        query.data.subscribedUsers.map(
-          async (user) => {
-            // pre-fetch the user's avatar if one exists
-            if (user.profile.avatarHash) {
-              await getIpfsHash(user.profile.avatarHash);
-            }
-
-            // pre-fetch any tokens that the user might have stored
-            if (user.tokenAddresses && user.tokenAddresses.length) {
-              await Promise.all(
-                user.tokenAddresses.map(async (tokenAddress) => await getToken(tokenAddress)),
-              );
-            }
-          },
-        ),
+    try {
+      const bearerToken = await getBearerToken();
+      const query = await graphQL(
+        getColonyMembersQuery,
+        { address: checksummedColonyAddress },
+        `${process.env.COLONYSERVER_ADDRESS}/graphql`,
+        { authorization: `Bearer ${bearerToken}` },
       );
 
-      // return the newly fetched user object
-      console.timeEnd(`get-colony-members-${timerId}`);
-      return query.data.subscribedUsers;
+      if (query && query.data && query.data.subscribedUsers && query.data.subscribedUsers.length) {
+
+        await Promise.all(
+          query.data.subscribedUsers.map(
+            async (user) => {
+              // pre-fetch the user's avatar if one exists
+              if (user.profile.avatarHash) {
+                await getIpfsHash(user.profile.avatarHash);
+              }
+
+              // pre-fetch any tokens that the user might have stored
+              if (user.tokenAddresses && user.tokenAddresses.length) {
+                await Promise.all(
+                  user.tokenAddresses.map(async (tokenAddress) => await getToken(tokenAddress)),
+                );
+              }
+            },
+          ),
+        );
+
+        // return the newly fetched user object
+        return query.data.subscribedUsers;
+      }
+
+      throw new Error(`Colony with address ${checksummedColonyAddress} was not found!`);
+
+    } catch (error) {
+      console.error(`Could not fetch colony`);
+      console.error(error);
     }
-
-    throw new Error(`Colony with address ${checksummedColonyAddress} was not found!`);
-
-  } catch (error) {
-    console.error(`Could not fetch colony`);
-    console.error(error);
-    console.timeEnd(`get-colony-members-${timerId}`);
-  }
-}
+  },
+);
 
 export const detectActionType = (actionEvents) => {
   for (let eventsIndex = 0; eventsIndex < actionEvents.length; eventsIndex += 1) {
@@ -307,11 +302,40 @@ export const helpBanner = async () => {
   console.log();
   console.log('Usage: npm run start --endblock <blockNo> [OPTIONS]');
   console.log();
-  console.log('Options:');
+  console.log('Global Options:');
+  // todo
   console.log('  --endBlock <blockNo>', "\t", 'Block number to fetch chain and subgraph data up to. This is REQUIRED');
-  // todo -- currently they are on by default
   console.log('  --showTimers', "\t\t", 'Show run timers for various actions. Useful to gauge run durations');
   // todo
   console.log('  --dryRun', "\t\t", 'Just fetch data, don\'t write it to the database');
   console.log('  --help', "\t\t", 'This message right here');
 };
+
+export const runBlock = async (
+  name = `run-block-${nanoid()}`,
+  fn,
+) => {
+  if (!fn || typeof fn !== 'function') {
+    console.log();
+    // note the ("" + function) construct is actually casting the function to a string so we can log it out
+    console.error('Cannot run function block. Provided function is not actually an executable', typeof fn, "" + fn);
+  }
+
+  // start timer (if enabled)
+  if (args.showTimers) {
+    console.time(`[Timer]: ${name}`);
+  }
+
+  const result = await fn();
+
+  // stop timer (if enabled)
+  if (args.showTimers) {
+    console.timeEnd(`[Timer]: ${name}`);
+  }
+
+  return result;
+}
+
+// throttle requests for 0.2s by default
+export const throttle = async (timeout = 200) =>
+  await new Promise(resolve => setTimeout(resolve, timeout));
