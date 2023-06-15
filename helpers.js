@@ -43,6 +43,24 @@ export const ColonyActionType = {
   WrongColony: 'WRONG_COLONY',
 };
 
+export const ColonyMotionsTypes = {
+  generic: ColonyActionType.Generic,
+  mintTokens: ColonyActionType.MintTokens,
+  makePaymentFundedFromDomain: ColonyActionType.Payment,
+  unlockToken: ColonyActionType.UnlockToken,
+  addDomain: ColonyActionType.CreateDomain,
+  editDomain: ColonyActionType.EditDomain,
+  editColony: ColonyActionType.editColony,
+  setUserRoles: ColonyActionType.SetUserRoles,
+  moveFundsBetweenPots: ColonyActionType.MoveFunds,
+  upgrade: ColonyActionType.VersionUpgrade,
+  emitDomainReputationPenalty: ColonyActionType.EmitDomainReputationPenalty,
+  emitDomainReputationReward: ColonyActionType.EmitDomainReputationReward,
+  createDecision: 'CREATE_DECISION',
+  nullMotion: 'NULL_MOTION',
+  makeArbitraryTransactions: 'ARBITRARTY_TRANSACTION',
+};
+
 export const getToken = async (address = constants.AddressZero) => await runBlock(
   `get-token-${nanoid()}`,
   async () => {
@@ -229,6 +247,8 @@ export const detectActionType = (actionEvents) => {
 
   }
 };
+
+export const detectMotionType = ({ name = ColonyMotionsTypes.generic }) => ColonyMotionsTypes[name] || ColonyMotionsTypes.generic;
 
 export const helpBanner = async () => {
   const {

@@ -170,6 +170,37 @@ export const getOneTxPayments = /* GraphQL */ `
   }
 `;
 
+export const getMotions = /* GraphQL */ `
+  query Motions($colonyAddress: String!, $first: Int = 10, $skip: Int = 0) {
+    motions(
+      first: $first,
+      skip: $skip,
+      orderBy: "timestamp",
+      orderDirection: asc,
+      where: {
+        associatedColony: $colonyAddress,
+        action_not: "0x12345678" # decisions
+      }
+    ) {
+      id
+      fundamentalChainId
+      transaction {
+        hash: id
+      }
+      extensionAddress
+      address: agent
+      domain {
+        ethDomainId: domainChainId
+        name
+      }
+      stakes
+      requiredStake
+      escalated
+      action
+    }
+  }
+`;
+
 export const getPermissionsEvents = /* GraphQL */ `
   query PermissionsEvents($colonyAddress: String!, $first: Int = 10, $skip: Int = 0) {
     events(

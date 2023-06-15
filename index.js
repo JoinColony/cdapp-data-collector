@@ -15,6 +15,7 @@ import {
   runBlock,
   throttle,
   ColonyActionType,
+  detectMotionType,
 } from './helpers.js';
 
 import {
@@ -24,6 +25,7 @@ import {
   getPermissionsEvents,
   getHistoricColonyExtensions,
   getOneTxPayments,
+  getMotions,
 } from './queries.js';
 
 dotenv.config();
@@ -340,7 +342,7 @@ const run = async () => {
 
                         // if it's oneTxPayment
                         let initialized = true;
-                        if (extensionId === 'VotingReputation') {
+                        if (extensionId !== 'OneTxPayment') {
                           initialized = !!extensionInitialisedEvents.length;
                         }
 
@@ -398,6 +400,7 @@ const run = async () => {
                       'Extension Address:', extension.address,
                       'Name:', extension.name,
                       'Version:', extension.version,
+                      extension.deprecated ? '(Deprecated)' : true,
                     );
                   });
 
@@ -455,6 +458,157 @@ const run = async () => {
                   }
 
                   return colonySubscribers;
+                },
+              );
+
+              // user permissions
+              await runBlock(
+                `colony-${colonyId}-permissions`,
+                async () => {
+                  let shouldFetchPermissionsEvents = true;
+                  let currentColonyPermissionEvents = [];
+
+                  if (args.showTimers) {
+                    console.log();
+                  }
+
+                  while (shouldFetchPermissionsEvents) {
+                    const {
+                      data: {
+                        events: permissionEvents
+                      } = {}
+                    } = await graphQL(
+                      getPermissionsEvents,
+                      {
+                        colonyAddress: currentColonyClient.address.toLowerCase(),
+                        first: parseInt(process.env.SUBGRAPH_BATCH_SIZE, 10),
+                        skip: currentColonyPermissionEvents.length,
+                      },
+                      process.env.SUBGRAPH_ADDRESS,
+                    );
+
+                    if (permissionEvents.length) {
+                      currentColonyPermissionEvents = [
+                        ...currentColonyPermissionEvents,
+                        ...permissionEvents,
+                      ];
+                    } else {
+                      shouldFetchPermissionsEvents = false;
+                    }
+
+                    if (args.showTimers) {
+                      console.log(`Fetched ${currentColonyPermissionEvents.length} permission events...`)
+                    }
+
+                    await throttle();
+                  }
+
+                  const reducedColonyPermissions = currentColonyPermissionEvents.reduce(
+                    (reducedPermissions, currentPermissionsEvent) => {
+                      const basePermissions = {
+                        role_0: null,
+                        role_1: null,
+                        role_2: null,
+                        role_3: null,
+                        role_5: null,
+                        role_6: null,
+                      };
+                      const values = JSON.parse(currentPermissionsEvent.args);
+                      const { user, domainId = 1, role = 0, setTo } = values;
+                      const userAddress = utils.getAddress(user);
+
+                      // existing role entry
+                      if (reducedPermissions[userAddress]) {
+
+                        // existing domain entry
+                        if (reducedPermissions[userAddress][domainId]) {
+                          return {
+                            ...reducedPermissions,
+                            [userAddress]: {
+                              ...reducedPermissions[userAddress],
+                              [domainId]: {
+                                ...reducedPermissions[userAddress][domainId],
+                                [`role_${role}`]: setTo ? true : null,
+                              },
+                            },
+                          };
+                        }
+
+                        // non existing domain entry
+                        return {
+                          ...reducedPermissions,
+                          [userAddress]: {
+                            ...reducedPermissions[userAddress],
+                            [domainId]: {
+                              ...basePermissions,
+                              [`role_${role}`]: setTo ? true : null,
+                            },
+                          },
+                        };
+                      }
+
+                      // non existing role entry
+                      return {
+                        ...reducedPermissions,
+                        [userAddress]: {
+                          [domainId]: {
+                            ...basePermissions,
+                            [`role_${role}`]: setTo ? true : null,
+                          }
+                        }
+                      };
+                    },
+                    {},
+                  )
+
+                  console.log();
+
+                  Object.keys(reducedColonyPermissions).map((addressWithPermissions, colonyPermissionsIndex) => {
+                    const permissionsEntry = reducedColonyPermissions[addressWithPermissions];
+
+                    // display purpouses only
+                    const subscriber = colonySubscribers.find(({ id }) => id === addressWithPermissions);
+                    const username = subscriber && subscriber.profile ? subscriber.profile.username : undefined;
+                    const extension = historicColonyExtensions.find(({ id }) => id === addressWithPermissions.toLowerCase());
+                    const extensionName = extension && extension.hash ? extensionsHashMap[extension.hash] : undefined;
+                    // maybe colony and token as well...
+                    const displayName = username || extensionName;
+
+                    // multiline display
+
+                    // console.log()
+                    // console.log(`Permission Entry #${colonyPermissionsIndex + 1}`)
+                    // console.log('Permissioned Address:', addressWithPermissions);
+                    // if (displayName) {
+                    //   console.log('Permissioned Name:', displayName);
+                    // }
+                    // Object.keys(permissionsEntry).map((domainId) => {
+                    //   console.log(
+                    //     `Permissions in Domain #${domainId}:`,
+                    //     Object.keys(permissionsEntry[domainId]).map((roleName) => {
+                    //       if (permissionsEntry[domainId][roleName]) {
+                    //         return parseInt(roleName.replace('role_', ''), 10);
+                    //       }
+                    //     }).filter(entry => entry >= 0),
+                    //   );
+                    // });
+
+                    // single line display
+
+                    Object.keys(permissionsEntry).map((domainId) => {
+                      const domainPermissions = Object.keys(permissionsEntry[domainId]).map((roleName) => {
+                        if (permissionsEntry[domainId][roleName]) {
+                          return parseInt(roleName.replace('role_', ''), 10);
+                        }
+                      }).filter(entry => entry >= 0);
+                      console.log(
+                        'Address w/ Permissions:', addressWithPermissions,
+                        displayName ? `(${displayName}) Domain:` : 'Domain:',
+                        `#${domainId}`,
+                        'Roles:', domainPermissions,
+                      );
+                    });
+                  });
                 },
               );
 
@@ -620,154 +774,80 @@ const run = async () => {
                 },
               );
 
-              // user permissions
+              // motions
               await runBlock(
-                `colony-${colonyId}-permissions`,
+                `colony-${colonyId}-motions`,
                 async () => {
-                  let shouldFetchPermissionsEvents = true;
-                  let currentColonyPermissionEvents = [];
+                  let shouldFetchMotions = true;
+                  let currentColonyMotions = [];
 
                   if (args.showTimers) {
                     console.log();
                   }
 
-                  while (shouldFetchPermissionsEvents) {
+                  while (shouldFetchMotions) {
                     const {
                       data: {
-                        events: permissionEvents
+                        motions
                       } = {}
                     } = await graphQL(
-                      getPermissionsEvents,
+                      getMotions,
                       {
                         colonyAddress: currentColonyClient.address.toLowerCase(),
                         first: parseInt(process.env.SUBGRAPH_BATCH_SIZE, 10),
-                        skip: currentColonyPermissionEvents.length,
+                        skip: currentColonyMotions.length,
                       },
                       process.env.SUBGRAPH_ADDRESS,
                     );
 
-                    if (permissionEvents.length) {
-                      currentColonyPermissionEvents = [
-                        ...currentColonyPermissionEvents,
-                        ...permissionEvents,
+                    if (motions.length) {
+                      currentColonyMotions = [
+                        ...currentColonyMotions,
+                        ...motions,
                       ];
                     } else {
-                      shouldFetchPermissionsEvents = false;
+                      shouldFetchMotions = false;
                     }
 
                     if (args.showTimers) {
-                      console.log(`Fetched ${currentColonyPermissionEvents.length} permission events...`)
+                      console.log(`Fetched ${currentColonyMotions.length} motions...`)
                     }
 
                     await throttle();
                   }
 
-                  const reducedColonyPermissions = currentColonyPermissionEvents.reduce(
-                    (reducedPermissions, currentPermissionsEvent) => {
-                      const basePermissions = {
-                        role_0: null,
-                        role_1: null,
-                        role_2: null,
-                        role_3: null,
-                        role_5: null,
-                        role_6: null,
-                      };
-                      const values = JSON.parse(currentPermissionsEvent.args);
-                      const { user, domainId = 1, role = 0, setTo } = values;
-                      const userAddress = utils.getAddress(user);
-
-                      // existing role entry
-                      if (reducedPermissions[userAddress]) {
-
-                        // existing domain entry
-                        if (reducedPermissions[userAddress][domainId]) {
-                          return {
-                            ...reducedPermissions,
-                            [userAddress]: {
-                              ...reducedPermissions[userAddress],
-                              [domainId]: {
-                                ...reducedPermissions[userAddress][domainId],
-                                [`role_${role}`]: setTo ? true : null,
-                              },
-                            },
-                          };
-                        }
-
-                        // non existing domain entry
-                        return {
-                          ...reducedPermissions,
-                          [userAddress]: {
-                            ...reducedPermissions[userAddress],
-                            [domainId]: {
-                              ...basePermissions,
-                              [`role_${role}`]: setTo ? true : null,
-                            },
-                          },
-                        };
-                      }
-
-                      // non existing role entry
-                      return {
-                        ...reducedPermissions,
-                        [userAddress]: {
-                          [domainId]: {
-                            ...basePermissions,
-                            [`role_${role}`]: setTo ? true : null,
-                          }
-                        }
-                      };
-                    },
-                    {},
-                  )
+                  const oneTxPaymentClient = await currentColonyClient.getExtensionClient('OneTxPayment');
+                  const votingReputationClient = await currentColonyClient.getExtensionClient('VotingReputation');
 
                   console.log();
 
-                  Object.keys(reducedColonyPermissions).map((addressWithPermissions, colonyPermissionsIndex) => {
-                    const permissionsEntry = reducedColonyPermissions[addressWithPermissions];
-
-                    // display purpouses only
-                    const subscriber = colonySubscribers.find(({ id }) => id === addressWithPermissions);
-                    const username = subscriber && subscriber.profile ? subscriber.profile.username : undefined;
-                    const extension = historicColonyExtensions.find(({ id }) => id === addressWithPermissions.toLowerCase());
-                    const extensionName = extension && extension.hash ? extensionsHashMap[extension.hash] : undefined;
-                    // maybe colony and token as well...
-                    const displayName = username || extensionName;
-
-                    // multiline display
-
-                    // console.log()
-                    // console.log(`Permission Entry #${colonyPermissionsIndex + 1}`)
-                    // console.log('Permissioned Address:', addressWithPermissions);
-                    // if (displayName) {
-                    //   console.log('Permissioned Name:', displayName);
-                    // }
-                    // Object.keys(permissionsEntry).map((domainId) => {
-                    //   console.log(
-                    //     `Permissions in Domain #${domainId}:`,
-                    //     Object.keys(permissionsEntry[domainId]).map((roleName) => {
-                    //       if (permissionsEntry[domainId][roleName]) {
-                    //         return parseInt(roleName.replace('role_', ''), 10);
-                    //       }
-                    //     }).filter(entry => entry >= 0),
-                    //   );
-                    // });
+                  currentColonyMotions.map(({
+                    action,
+                    fundamentalChainId,
+                    transaction: { hash },
+                    extensionAddress,
+                  }, index) => {
+                    if (action === '0x') {
+                      return;
+                    }
+                    let parsedData;
+                    try {
+                      parsedData = currentColonyClient.interface.parseTransaction({ data: action });
+                    } catch (error) {
+                      // attempt with the one tx client
+                      parsedData = oneTxPaymentClient.interface.parseTransaction({ data: action });
+                    }
 
                     // single line display
-
-                    Object.keys(permissionsEntry).map((domainId) => {
-                      const domainPermissions = Object.keys(permissionsEntry[domainId]).map((roleName) => {
-                        if (permissionsEntry[domainId][roleName]) {
-                          return parseInt(roleName.replace('role_', ''), 10);
-                        }
-                      }).filter(entry => entry >= 0);
-                      console.log(
-                        'Address w/ Permissions:', addressWithPermissions,
-                        displayName ? `(${displayName}) Domain:` : 'Domain:',
-                        `#${domainId}`,
-                        'Roles:', domainPermissions,
-                      );
-                    });
+                    console.log(
+                      `Motion #${index + 1}`,
+                      `Fundamental #${fundamentalChainId}`,
+                      `TX: ${hash}`,
+                      `Type: ${detectMotionType(parsedData)}`,
+                      extensionAddress !== votingReputationClient.address.toLowerCase() ? `(Uninstalled)` : true,
+                    );
                   });
+
                 },
               );
 
