@@ -23,7 +23,7 @@ const args = minimist(process.argv);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const ColonyActionType = {
+export const ColonyActionType = {
   ColonyEdit: 'COLONY_EDIT',
   CreateDomain: 'CREATE_DOMAIN',
   EditDomain: 'EDIT_DOMAIN',

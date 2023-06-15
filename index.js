@@ -14,6 +14,7 @@ import {
   helpBanner,
   runBlock,
   throttle,
+  ColonyActionType,
 } from './helpers.js';
 
 import {
@@ -22,6 +23,7 @@ import {
   getActionEvents,
   getPermissionsEvents,
   getHistoricColonyExtensions,
+  getOneTxPayments,
 } from './queries.js';
 
 dotenv.config();
@@ -541,7 +543,47 @@ const run = async () => {
                     {},
                   )
 
-                  console.log()
+                  //  one tx payments
+
+                  let shouldFetchOneTx = true;
+                  let currentColonyOneTxs = [];
+
+                  if (args.showTimers) {
+                    console.log();
+                  }
+
+                  while (shouldFetchOneTx) {
+                    const {
+                      data: {
+                        oneTxPayments
+                      } = {}
+                    } = await graphQL(
+                      getOneTxPayments,
+                      {
+                        colonyAddress: currentColonyClient.address.toLowerCase(),
+                        first: 50,
+                        skip: currentColonyOneTxs.length,
+                      },
+                      process.env.SUBGRAPH_ADDRESS,
+                    );
+
+                    if (oneTxPayments.length) {
+                      currentColonyOneTxs = [
+                        ...currentColonyOneTxs,
+                        ...oneTxPayments,
+                      ];
+                    } else {
+                      shouldFetchOneTx = false;
+                    }
+
+                    if (args.showTimers) {
+                      console.log(`Fetched ${currentColonyOneTxs.length} one tx related entities...`);
+                    }
+
+                    await throttle();
+                  }
+
+                  console.log();
 
                   Object.keys(reducedColonyActions).map((colonyActionTransactionHash, colonyActionIndex) => {
                     const colonyAction = reducedColonyActions[colonyActionTransactionHash];
@@ -561,6 +603,18 @@ const run = async () => {
                       `Action #${colonyActionIndex + 1}`,
                       'TX:', colonyAction.transactionHash,
                       'Type:', detectActionType(colonyAction.values),
+                    );
+                  });
+
+                  const actionsFromEventsCount = Object.keys(reducedColonyActions).length;
+
+                  currentColonyOneTxs.map(({ transaction: { hash }}, index) => {
+                    // single line display
+
+                    console.log(
+                      `Action #${actionsFromEventsCount + 1 + index}`,
+                      'TX:', hash,
+                      'Type:', ColonyActionType.Payment,
                     );
                   });
                 },

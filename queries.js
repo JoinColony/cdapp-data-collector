@@ -133,6 +133,43 @@ export const getActionEvents = /* GraphQL */ `
   }
 `;
 
+export const getOneTxPayments = /* GraphQL */ `
+  query OneTxPayments($colonyAddress: String!, $first: Int = 10, $skip: Int = 0) {
+    oneTxPayments(
+      first: $first,
+      skip: $skip,
+      orderBy: "timestamp",
+      orderDirection: asc,
+      where: { payment_contains: $colonyAddress }
+    ) {
+      id
+      address: agent
+      transaction {
+        hash: id
+      }
+      payment {
+        recipient: to
+        domain {
+          ethDomainId: domainChainId
+          name
+        }
+        fundingPot {
+          fundingPotPayouts {
+            id
+            token {
+              address: id
+              symbol
+              decimals
+            }
+            amount
+          }
+        }
+      }
+      timestamp
+    }
+  }
+`;
+
 export const getPermissionsEvents = /* GraphQL */ `
   query PermissionsEvents($colonyAddress: String!, $first: Int = 10, $skip: Int = 0) {
     events(
