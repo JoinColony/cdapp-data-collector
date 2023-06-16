@@ -201,6 +201,53 @@ export const getMotions = /* GraphQL */ `
   }
 `;
 
+export const getDecisions = /* GraphQL */ `
+  query Motions($colonyAddress: String!, $first: Int = 10, $skip: Int = 0) {
+    decisions: motions(
+      first: $first,
+      skip: $skip,
+      orderBy: "timestamp",
+      orderDirection: asc,
+      where: {
+        associatedColony: $colonyAddress,
+        action: "0x12345678" # decisions
+      }
+    ) {
+      id
+      fundamentalChainId
+      transaction {
+        hash: id
+      }
+      extensionAddress
+      address: agent
+      domain {
+        ethDomainId: domainChainId
+        name
+      }
+      stakes
+      requiredStake
+      escalated
+      action
+    }
+  }
+`;
+
+// Not that this is a query "chunk" as it needs to be used dinamically
+// It cannot be called directly
+export const getAnnotationsChunk = (name, transactionHash) => `
+  ${name}: events(
+    where: {
+      name_contains: "Annotation",
+      args_contains: "${transactionHash}",
+    }
+  ) {
+    transaction {
+      hash: id
+    }
+    args
+  }
+`;
+
 export const getPermissionsEvents = /* GraphQL */ `
   query PermissionsEvents($colonyAddress: String!, $first: Int = 10, $skip: Int = 0) {
     events(

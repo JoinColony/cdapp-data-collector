@@ -26,6 +26,8 @@ import {
   getHistoricColonyExtensions,
   getOneTxPayments,
   getMotions,
+  getDecisions,
+  getAnnotationsChunk,
 } from './queries.js';
 
 dotenv.config();
@@ -788,7 +790,7 @@ const run = async () => {
                   while (shouldFetchMotions) {
                     const {
                       data: {
-                        motions
+                        motions,
                       } = {}
                     } = await graphQL(
                       getMotions,
@@ -848,6 +850,98 @@ const run = async () => {
                     );
                   });
 
+                },
+              );
+
+              // decisions
+              await runBlock(
+                `colony-${colonyId}-decisions`,
+                async () => {
+                  let shouldFetchDecisions = true;
+                  let currentColonyDecisions = [];
+
+                  if (args.showTimers) {
+                    console.log();
+                  }
+
+                  while (shouldFetchDecisions) {
+                    const {
+                      data: {
+                        decisions,
+                      } = {}
+                    } = await graphQL(
+                      getDecisions,
+                      {
+                        colonyAddress: currentColonyClient.address.toLowerCase(),
+                        first: parseInt(process.env.SUBGRAPH_BATCH_SIZE, 10),
+                        skip: currentColonyDecisions.length,
+                      },
+                      process.env.SUBGRAPH_ADDRESS,
+                    );
+
+                    if (decisions.length) {
+                      currentColonyDecisions = [
+                        ...currentColonyDecisions,
+                        ...decisions,
+                      ];
+                    } else {
+                      shouldFetchDecisions = false;
+                    }
+
+                    if (args.showTimers) {
+                      console.log(`Fetched ${currentColonyDecisions.length} decisions...`)
+                    }
+
+                    await throttle();
+                  }
+
+                  // dynamic query so that we can overcome the subgraph filtering per transaction
+                  // while simultaneously reducing the number of queries
+                  const { data: decisionAnnotations } = await graphQL(
+                    /* GraphQL */ `
+                      query Annotations {
+                        ${currentColonyDecisions.map(({ transaction: { hash } }, index) => getAnnotationsChunk(`txAnnotation${index}`, hash))}
+                      }
+                    `,
+                    {},
+                    process.env.SUBGRAPH_ADDRESS,
+                  );
+
+                  let decisionsMetadata = {};
+                  await Promise.all(
+                    Object.keys(decisionAnnotations).map(async (annotationKey) => {
+                      const [{ args }] = decisionAnnotations[annotationKey];
+                      const { metadata, txHash } = JSON.parse(args);
+                      const ipfsData = await getIpfsHash(metadata);
+                      decisionsMetadata[txHash] = {
+                        metadata,
+                        ...ipfsData,
+                      };
+                    }),
+                  );
+
+                  const votingReputationClient = await currentColonyClient.getExtensionClient('VotingReputation');
+
+                  console.log();
+
+                  currentColonyDecisions.map((
+                    {
+                      transaction: { hash },
+                      fundamentalChainId,
+                      extensionAddress
+                    },
+                    index,
+                  ) => {
+                    // single line display
+                    const { data: { title } } = decisionsMetadata[hash];
+                    console.log(
+                      `Decision #${index + 1}`,
+                      `Fundamental #${fundamentalChainId}`,
+                      `TX: ${hash}`,
+                      `Title:`, title.length >= 21 ? `${title.slice(0, 18)}...` : title,
+                      extensionAddress !== votingReputationClient.address.toLowerCase() ? `(Uninstalled)` : true,
+                    );
+                  });
                 },
               );
 
