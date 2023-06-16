@@ -5,30 +5,28 @@ import { existsSync } from 'fs';
 import { writeJsonFile } from 'write-json-file';
 import { utils, constants } from 'ethers';
 
+import { runBlock } from './helpers.js';
+
 // note that __filename and __dirname don't exist in node if package json declares "module"
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const writeJsonToFile = async (path, data) => {
-  const timerId = nanoid();
-  console.time(`write-json-file-${timerId}`);
-
-  try {
-    // only write it if it doesn't exist, save on I/O disk actions! Would somebody please think of the SSDs...
-    if (!existsSync(path)) {
-      await writeJsonFile(path, data);
-
-      console.timeEnd(`write-json-file-${timerId}`);
-      return true;
+const writeJsonToFile = async (path, data) => runBlock(
+  `write-json-file-${nanoid()}`,
+  async () => {
+    try {
+      // only write it if it doesn't exist, save on I/O disk actions! Would somebody please think of the SSDs...
+      if (!existsSync(path)) {
+        await writeJsonFile(path, data);
+        return true;
+      }
+    } catch (error) {
+      console.error(`Could not write file: ${path}`);
+      console.error(error);
     }
-  } catch (error) {
-    console.error(`Could not write file: ${path}`);
-    console.error(error);
-  }
-
-  console.timeEnd(`write-json-file-${timerId}`);
-  return false;
-};
+    return false;
+  },
+);
 
 
 export const writeTokenToFile = async ({
