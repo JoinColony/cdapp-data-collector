@@ -15,8 +15,10 @@ const ipfs = async (hash, url = process.env.IPFS_GATEWAY) => {
 
   try {
     response = await fetch(request);
-    body = await response.json();
-    return body;
+    if (response) {
+      body = await response.json();
+      return body;
+    }
   } catch (error) {
     /*
      * Something went wrong... obviously
