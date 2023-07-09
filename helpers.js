@@ -131,7 +131,7 @@ export const getIpfsHash = async (hash) => await runBlock(
     } catch (error) {
       // most likely the file doesn't exist
     }
-    if (Object.keys(ipfsFile).length) {
+    if (ipfsFile && Object.keys(ipfsFile).length) {
       // return locally stored ipfs object
       return ipfsFile;
     }
