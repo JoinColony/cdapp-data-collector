@@ -30,12 +30,17 @@ import {
   getAnnotationsChunk,
 } from './queries.js';
 
+import {
+  createUniqueColony,
+} from './mutations.js';
+
 dotenv.config();
 utils.Logger.setLogLevel(utils.Logger.levels.ERROR);
 
 const args = minimist(process.argv);
 
 const run = async () => {
+  const networkInfo = await networkClient.provider.getNetwork();
   const currentBlock = await networkClient.provider.getBlock('latest');
 
   if (args.help) {
@@ -53,6 +58,13 @@ const run = async () => {
     console.error('Run: npm run start --help for usage information');
     process.exit(1);
   }
+
+  console.log();
+  console.log(`Chain: ${networkInfo.name}`);
+  console.log(`Chain ID: ${networkInfo.chainId}`);
+
+  console.log();
+  console.log(`Colony Network Deployment: ${process.env.NETWORK_ADDRESS}`);
 
   console.log();
   console.log('Current Block:', currentBlock.number);
@@ -102,6 +114,44 @@ const run = async () => {
                   console.log('Chain Token Name:', currentColonyToken.name);
                   console.log('Chain Token Symbol:', currentColonyToken.symbol);
                   console.log('Chain Token Decimals:', currentColonyToken.decimals);
+
+                  let lockedStatus = false;
+                  try {
+                    lockedStatus = await currentColonyClient.tokenClient.locked();
+                  } catch (error) {
+                    //
+                  }
+
+                  let unlockable = false;
+                  try {
+                    await networkClient.provider.estimateGas({
+                      from: currentColonyClient.address,
+                      to: currentColonyClient.tokenClient.address,
+                      data: currentColonyClient.tokenClient.interface.functions.unlock.sighash,
+                    });
+                    unlockable = true;
+                  } catch (error) {
+                    //
+                  }
+
+                  let mintable = false;
+                  try {
+                    await networkClient.provider.estimateGas({
+                      from: currentColonyClient.address,
+                      to: currentColonyClient.tokenClient.address,
+                      /*
+                       * The mint method (overloaded version) encoded with 1 as the first parameter
+                       */
+                      data: currentColonyClient.tokenClient.interface.encodeFunctionData('mint(uint256)', [1]),
+                    });
+                    mintable = true;
+                  } catch (error) {
+                    //
+                  }
+
+                  console.log('Chain Token Unlocked:', !lockedStatus);
+                  console.log('Chain Token Unlockable:', unlockable);
+                  console.log('Chain Token Mintable:', mintable);
 
                   // domains
                   console.log()
