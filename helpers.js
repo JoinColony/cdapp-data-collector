@@ -207,7 +207,6 @@ export const detectActionType = (actionEvents) => {
     const { name: eventSignature, amount } = actionEvents[eventsIndex];
 
     switch (eventSignature) {
-      // todo one tx paymnet
       case 'ColonyRoleSet(address,address,uint256,uint8,bool)':
       case 'ColonyRoleSet(address,uint256,uint8,bool)':
       case 'RecoveryRoleSet(address,bool)':
@@ -263,7 +262,6 @@ export const helpBanner = async () => {
   console.log('Usage: npm run start --endblock <blockNo> [OPTIONS]');
   console.log();
   console.log('Global Options:');
-  // todo
   console.log('  --endBlock <blockNo>', "\t", 'Block number to fetch chain and subgraph data up to. This is REQUIRED');
   console.log('  --showTimers', "\t\t", 'Show run timers for various actions. Useful to gauge run durations');
   // todo

@@ -36,26 +36,28 @@ utils.Logger.setLogLevel(utils.Logger.levels.ERROR);
 const args = minimist(process.argv);
 
 const run = async () => {
+  const currentBlock = await networkClient.provider.getBlock('latest');
 
   if (args.help) {
     await helpBanner();
     process.exit(0);
   }
 
-  if (!args.endBlock) {
+  if (!args.endBlock || typeof args.endBlock !== 'number' || args.endBlock > currentBlock.number) {
     console.log();
     console.error('Please provide an end block using the "--endBlock <blockNo>" argument');
+    if (args.endBlock > currentBlock.number) {
+      console.error(`The end block cannot be higher than the current block number: ${currentBlock.number}`);
+    }
     console.log();
     console.error('Run: npm run start --help for usage information');
     process.exit(1);
   }
 
   console.log();
-  const currentBlock = await networkClient.provider.getBlock('latest');
   console.log('Current Block:', currentBlock.number);
-  // todo implement actual logic
   console.log('Fetching up to Block:', args.endBlock);
-  console.log('Block difference:', currentBlock.number - args.endBlock);
+  console.log('Block difference:', args.endBlock - currentBlock.number);
 
   await runBlock(
     'total-runtime',
@@ -124,7 +126,10 @@ const run = async () => {
                     } = {}
                   } = await graphQL(
                     getColony,
-                    { address: currentColonyClient.address.toLowerCase() },
+                    {
+                      address: currentColonyClient.address.toLowerCase(),
+                      upToBlock: args.endBlock,
+                    },
                     process.env.SUBGRAPH_ADDRESS,
                   );
 
@@ -159,7 +164,7 @@ const run = async () => {
                           colonyDisplayName,
                           colonyAvatarHash,
                           colonyTokens,
-                          verifiedAddresses, // @todo whitelist
+                          verifiedAddresses,
                           isWhitelistActivated
                         } = colonyMetadata.data;
 
@@ -477,12 +482,13 @@ const run = async () => {
                   while (shouldFetchPermissionsEvents) {
                     const {
                       data: {
-                        events: permissionEvents
+                        events: permissionEvents = []
                       } = {}
                     } = await graphQL(
                       getPermissionsEvents,
                       {
                         colonyAddress: currentColonyClient.address.toLowerCase(),
+                        upToBlock: args.endBlock,
                         first: parseInt(process.env.SUBGRAPH_BATCH_SIZE, 10),
                         skip: currentColonyPermissionEvents.length,
                       },
@@ -628,12 +634,13 @@ const run = async () => {
                   while (shouldFetchActions) {
                     const {
                       data: {
-                        events
-                      } = {}
+                        events = []
+                      } = {},
                     } = await graphQL(
                       getActionEvents,
                       {
                         colonyAddress: currentColonyClient.address.toLowerCase(),
+                        upToBlock: args.endBlock,
                         first: parseInt(process.env.SUBGRAPH_BATCH_SIZE, 10),
                         skip: currentColonyActions.length,
                       },
@@ -711,12 +718,13 @@ const run = async () => {
                   while (shouldFetchOneTx) {
                     const {
                       data: {
-                        oneTxPayments
+                        oneTxPayments = []
                       } = {}
                     } = await graphQL(
                       getOneTxPayments,
                       {
                         colonyAddress: currentColonyClient.address.toLowerCase(),
+                        upToBlock: args.endBlock,
                         first: parseInt(process.env.SUBGRAPH_BATCH_SIZE, 10),
                         skip: currentColonyOneTxs.length,
                       },
@@ -790,12 +798,13 @@ const run = async () => {
                   while (shouldFetchMotions) {
                     const {
                       data: {
-                        motions,
+                        motions = [],
                       } = {}
                     } = await graphQL(
                       getMotions,
                       {
                         colonyAddress: currentColonyClient.address.toLowerCase(),
+                        upToBlock: args.endBlock,
                         first: parseInt(process.env.SUBGRAPH_BATCH_SIZE, 10),
                         skip: currentColonyMotions.length,
                       },
@@ -867,12 +876,13 @@ const run = async () => {
                   while (shouldFetchDecisions) {
                     const {
                       data: {
-                        decisions,
+                        decisions = [],
                       } = {}
                     } = await graphQL(
                       getDecisions,
                       {
                         colonyAddress: currentColonyClient.address.toLowerCase(),
+                        upToBlock: args.endBlock,
                         first: parseInt(process.env.SUBGRAPH_BATCH_SIZE, 10),
                         skip: currentColonyDecisions.length,
                       },
@@ -897,7 +907,7 @@ const run = async () => {
 
                   // dynamic query so that we can overcome the subgraph filtering per transaction
                   // while simultaneously reducing the number of queries
-                  const { data: decisionAnnotations } = await graphQL(
+                  const { data: decisionAnnotations = {} } = await graphQL(
                     /* GraphQL */ `
                       query Annotations {
                         ${currentColonyDecisions.map(({ transaction: { hash } }, index) => getAnnotationsChunk(`txAnnotation${index}`, hash))}

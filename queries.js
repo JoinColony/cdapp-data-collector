@@ -1,8 +1,11 @@
 // subgraph
 
 export const getColony = /* GraphQL */ `
-  query GetColony($address: String!) {
-    colony(id: $address) {
+  query GetColony($address: String!, $upToBlock: Int!) {
+    colony(
+      id: $address,
+      block: { number: $upToBlock }
+    ) {
       id
       colonyChainId
       ensName
@@ -22,7 +25,10 @@ export const getColony = /* GraphQL */ `
         symbol
       }
     }
-    domains(where: { colonyAddress: $address }) {
+    domains(
+      block: { number: $upToBlock },
+      where: { colonyAddress: $address }
+    ) {
       id
       domainChainId
       parent {
@@ -96,12 +102,13 @@ export const getExtensionEvents = /* GraphQL */ `
 `;
 
 export const getActionEvents = /* GraphQL */ `
-  query ActionEvents($colonyAddress: String!, $first: Int = 10, $skip: Int = 0) {
+  query ActionEvents($colonyAddress: String!, $upToBlock: Int!, $first: Int = 10, $skip: Int = 0) {
     events(
       first: $first,
       skip: $skip,
       orderBy: "timestamp",
       orderDirection: asc,
+      block: { number: $upToBlock },
       where: {
         associatedColony_contains: $colonyAddress,
         name_in: [
@@ -125,6 +132,10 @@ export const getActionEvents = /* GraphQL */ `
       address
       transaction {
         hash: id
+        block {
+          timestamp
+          number: id
+        }
       }
       name
       args
@@ -134,18 +145,23 @@ export const getActionEvents = /* GraphQL */ `
 `;
 
 export const getOneTxPayments = /* GraphQL */ `
-  query OneTxPayments($colonyAddress: String!, $first: Int = 10, $skip: Int = 0) {
+  query OneTxPayments($colonyAddress: String!, $upToBlock: Int!, $first: Int = 10, $skip: Int = 0) {
     oneTxPayments(
       first: $first,
       skip: $skip,
       orderBy: "timestamp",
       orderDirection: asc,
+      block: { number: $upToBlock },
       where: { payment_contains: $colonyAddress }
     ) {
       id
       address: agent
       transaction {
         hash: id
+        block {
+          timestamp
+          number: id
+        }
       }
       payment {
         recipient: to
@@ -171,12 +187,13 @@ export const getOneTxPayments = /* GraphQL */ `
 `;
 
 export const getMotions = /* GraphQL */ `
-  query Motions($colonyAddress: String!, $first: Int = 10, $skip: Int = 0) {
+  query Motions($colonyAddress: String!, $upToBlock: Int!, $first: Int = 10, $skip: Int = 0) {
     motions(
       first: $first,
       skip: $skip,
       orderBy: "timestamp",
       orderDirection: asc,
+      block: { number: $upToBlock },
       where: {
         associatedColony: $colonyAddress,
         action_not: "0x12345678" # decisions
@@ -186,6 +203,10 @@ export const getMotions = /* GraphQL */ `
       fundamentalChainId
       transaction {
         hash: id
+        block {
+          timestamp
+          number: id
+        }
       }
       extensionAddress
       address: agent
@@ -202,12 +223,13 @@ export const getMotions = /* GraphQL */ `
 `;
 
 export const getDecisions = /* GraphQL */ `
-  query Motions($colonyAddress: String!, $first: Int = 10, $skip: Int = 0) {
+  query Motions($colonyAddress: String!, $upToBlock: Int!, $first: Int = 10, $skip: Int = 0) {
     decisions: motions(
       first: $first,
       skip: $skip,
       orderBy: "timestamp",
       orderDirection: asc,
+      block: { number: $upToBlock },
       where: {
         associatedColony: $colonyAddress,
         action: "0x12345678" # decisions
@@ -217,6 +239,10 @@ export const getDecisions = /* GraphQL */ `
       fundamentalChainId
       transaction {
         hash: id
+        block {
+          timestamp
+          number: id
+        }
       }
       extensionAddress
       address: agent
@@ -249,12 +275,13 @@ export const getAnnotationsChunk = (name, transactionHash) => `
 `;
 
 export const getPermissionsEvents = /* GraphQL */ `
-  query PermissionsEvents($colonyAddress: String!, $first: Int = 10, $skip: Int = 0) {
+  query PermissionsEvents($colonyAddress: String!, $upToBlock: Int!, $first: Int = 10, $skip: Int = 0) {
     events(
       first: $first,
       skip: $skip,
       orderBy: "timestamp",
       orderDirection: asc,
+      block: { number: $upToBlock }
       where: {
         associatedColony_contains: $colonyAddress,
         name_in: [
@@ -264,9 +291,18 @@ export const getPermissionsEvents = /* GraphQL */ `
       }) {
       name
       args
+      transaction {
+        block {
+          timestamp
+          number: id
+        }
+      }
     }
   }
 `;
+
+// display purpouses only, not really needed for data fetching,
+// hence the hard limit at 1000
 
 export const getHistoricColonyExtensions = /* GraphQL */ `
   query HistoricColonyExtensions($colonyAddress: String!) {
