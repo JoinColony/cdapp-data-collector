@@ -933,7 +933,7 @@ const run = async () => {
                     index,
                   ) => {
                     // single line display
-                    const { data: { title } } = decisionsMetadata[hash];
+                    const { data: { title } = { title: '' } } = decisionsMetadata[hash];
                     console.log(
                       `Decision #${index + 1}`,
                       `Fundamental #${fundamentalChainId}`,
