@@ -356,3 +356,15 @@ export const getUser = /* GraphQL */ `
     }
   }
 `;
+
+// AppSync
+
+export const getTokenByAddress =/* GraphQL */ `
+  query GetTokenByAddress($address: ID!) {
+    getTokenByAddress(id: $address ) {
+      items {
+        address: id
+      }
+    }
+  }
+`;
