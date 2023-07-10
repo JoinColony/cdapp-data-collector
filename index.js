@@ -35,7 +35,10 @@ import {
   createColonyMetadata,
 } from './mutations.js';
 
-import { attemptCreateToken } from './mutationHelpers.js';
+import {
+  attemptCreateToken,
+  attemptToAddTokenToColony,
+} from './mutationHelpers.js';
 
 dotenv.config();
 utils.Logger.setLogLevel(utils.Logger.levels.ERROR);
@@ -197,6 +200,12 @@ const run = async () => {
                     //
                   }
 
+                  // add native token to colony
+                  await attemptToAddTokenToColony(
+                    utils.getAddress(currentColonyClient.address),
+                    currentColonyToken.address,
+                  );
+
                   return currentColonyClient;
                 },
               );
@@ -287,6 +296,15 @@ const run = async () => {
                             // console.log('Saved Token Decimals:', colonySavedToken.decimals);
 
                             // single line display
+
+                            // create token
+                            await attemptCreateToken(colonySavedToken);
+
+                            // add token to colony
+                            await attemptToAddTokenToColony(
+                              utils.getAddress(currentColonyClient.address),
+                              colonySavedToken.address,
+                            );
 
                             console.log(
                               'Token Address:', colonySavedToken.address,

@@ -23,3 +23,11 @@ export const createColonyMetadata = /* GraphQL */ `
     }
   }
 `;
+
+export const createColonyTokens = /* GraphQL */ `
+  mutation CreateColonyTokens($input: CreateColonyTokensInput!) {
+    createColonyTokens(input: $input) {
+      id
+  }
+}
+`;

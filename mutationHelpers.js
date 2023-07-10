@@ -3,8 +3,14 @@ import dotenv from 'dotenv';
 import colonyJS from './node_modules/@colony/colony-js/dist/cjs/index.js';
 
 import { runBlock } from "./helpers.js";
-import { createToken } from "./mutations.js";
-import { getTokenByAddress } from './queries.js';
+import {
+  createToken,
+  createColonyTokens,
+} from "./mutations.js";
+import {
+  getTokenByAddress,
+  getColonyToken,
+} from './queries.js';
 import graphQl from "./graphQl.js";
 import networkClient from "./networkClient.js";
 
@@ -64,3 +70,40 @@ export const attemptCreateToken = async (token) => await runBlock(
   },
 );
 
+export const attemptToAddTokenToColony = async (colonyAddress, tokenAddress) => await runBlock(
+  `add-token-${tokenAddress}-colony-${colonyAddress}-${nanoid()}`,
+  async () => {
+
+    // fetch current token <> colony relationship from the db, see if it exists already
+    // as we'll only add it in, if it doesn't exist
+    const { data } = await graphQl(
+      getColonyToken,
+      { colonyAddress, tokenAddress },
+      `${process.env.AWS_APPSYNC_ADDRESS}/graphql`,
+      { 'x-api-key': process.env.AWS_APPSYNC_KEY },
+    );
+
+    const [existingRelationship] = data && data.listColonyTokens && data.listColonyTokens.items || [];
+
+    // no point in going forward, it already exists
+    if (existingRelationship) {
+      return;
+    }
+
+    try {
+      await graphQl(
+        createColonyTokens,
+        {
+          input: {
+            tokenID: tokenAddress,
+            colonyID: colonyAddress,
+          },
+        },
+        `${process.env.AWS_APPSYNC_ADDRESS}/graphql`,
+        { 'x-api-key': process.env.AWS_APPSYNC_KEY },
+      );
+    } catch (error) {
+      //
+    }
+  },
+);

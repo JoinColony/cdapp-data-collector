@@ -359,11 +359,27 @@ export const getUser = /* GraphQL */ `
 
 // AppSync
 
-export const getTokenByAddress =/* GraphQL */ `
+export const getTokenByAddress = /* GraphQL */ `
   query GetTokenByAddress($address: ID!) {
     getTokenByAddress(id: $address ) {
       items {
         address: id
+      }
+    }
+  }
+`;
+
+// used to detect if a particular token was already added to a colony
+export const getColonyToken = /* GraphQL */ `
+  query getColonyToken($colonyAddress: ID!, $tokenAddress: ID!) {
+    listColonyTokens(
+      filter: {
+        tokenID: { eq: $tokenAddress },
+        colonyID: { eq: $colonyAddress }
+      }
+    ) {
+      items {
+        id
       }
     }
   }
