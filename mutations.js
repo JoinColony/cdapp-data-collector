@@ -15,3 +15,11 @@ export const createUniqueColony = /* GraphQL */ `
     }
   }
 `;
+
+export const createColonyMetadata = /* GraphQL */ `
+  mutation CreateColonyMetadata($input: CreateColonyMetadataInput!) {
+    createColonyMetadata(input: $input) {
+      id
+    }
+  }
+`;

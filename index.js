@@ -32,7 +32,10 @@ import {
 
 import {
   createUniqueColony,
+  createColonyMetadata,
 } from './mutations.js';
+
+import { attemptCreateToken } from './mutationHelpers.js';
 
 dotenv.config();
 utils.Logger.setLogLevel(utils.Logger.levels.ERROR);
@@ -109,6 +112,7 @@ const run = async () => {
                   console.log();
 
                   const currentColonyToken = await getToken(currentColonyClient.tokenClient.address);
+                  const currentColonyTokenClient = currentColonyClient.tokenClient;
 
                   console.log('Chain Token Address:', currentColonyToken.address);
                   console.log('Chain Token Name:', currentColonyToken.name);
@@ -117,7 +121,7 @@ const run = async () => {
 
                   let lockedStatus = false;
                   try {
-                    lockedStatus = await currentColonyClient.tokenClient.locked();
+                    lockedStatus = await currentColonyTokenClient.locked();
                   } catch (error) {
                     //
                   }
@@ -126,8 +130,8 @@ const run = async () => {
                   try {
                     await networkClient.provider.estimateGas({
                       from: currentColonyClient.address,
-                      to: currentColonyClient.tokenClient.address,
-                      data: currentColonyClient.tokenClient.interface.functions.unlock.sighash,
+                      to: currentColonyTokenClient.address,
+                      data: currentColonyTokenClient.interface.functions.unlock.sighash,
                     });
                     unlockable = true;
                   } catch (error) {
@@ -138,11 +142,11 @@ const run = async () => {
                   try {
                     await networkClient.provider.estimateGas({
                       from: currentColonyClient.address,
-                      to: currentColonyClient.tokenClient.address,
+                      to: currentColonyTokenClient.address,
                       /*
                        * The mint method (overloaded version) encoded with 1 as the first parameter
                        */
-                      data: currentColonyClient.tokenClient.interface.encodeFunctionData('mint(uint256)', [1]),
+                      data: currentColonyTokenClient.interface.encodeFunctionData('mint(uint256)', [1]),
                     });
                     mintable = true;
                   } catch (error) {
@@ -159,6 +163,38 @@ const run = async () => {
                   for (let chainDomainId = 1; chainDomainId <= colonyChainDomainsCount.toNumber(); chainDomainId += 1) {
                     console.log('Chain Domain Id:', chainDomainId);
                     console.log('Chain Domain Name:', chainDomainId === 1 ? 'Root' : `Domain #${chainDomainId}`);
+                  }
+
+                  // create token
+                  await attemptCreateToken(currentColonyToken);
+
+                  /* Create the colony's entry */
+                  try {
+                    await graphQL(
+                      createUniqueColony,
+                      {
+                        input: {
+                          id: utils.getAddress(currentColonyClient.address),
+                          name: colonyName.slice(0, colonyName.indexOf('.')),
+                          colonyNativeTokenId: utils.getAddress(currentColonyToken.address),
+                          version: colonyVersion.toNumber(),
+                          chainMetadata: {
+                            chainId: networkInfo.chainId,
+                          },
+                          status: {
+                            nativeToken: {
+                              unlockable,
+                              unlocked: !lockedStatus,
+                              mintable,
+                            },
+                          },
+                        },
+                      },
+                      `${process.env.AWS_APPSYNC_ADDRESS}/graphql`,
+                      { 'x-api-key': process.env.AWS_APPSYNC_KEY },
+                    );
+                  } catch (error) {
+                    //
                   }
 
                   return currentColonyClient;
@@ -218,11 +254,14 @@ const run = async () => {
                           isWhitelistActivated
                         } = colonyMetadata.data;
 
+                        console.log(isWhitelistActivated)
+
                         console.log();
                         console.log('Ipfs Display Name:', colonyDisplayName);
 
+                        let colonyAvatar;
                         if (colonyAvatarHash) {
-                          const colonyAvatar = await getIpfsHash(colonyAvatarHash);
+                          colonyAvatar = await getIpfsHash(colonyAvatarHash);
 
                           if (colonyAvatar.image) {
                             console.log('Ipfs Avatar:', colonyAvatar.image.slice(0, 40), '...');
@@ -255,6 +294,29 @@ const run = async () => {
                               `(${colonySavedToken.symbol})`,
                             );
                           }
+                        }
+
+                        const metadataUpdateInput = {
+                          id: utils.getAddress(currentColonyClient.address),
+                          isWhitelistActivated,
+                        };
+                        if (colonyDisplayName) {
+                          metadataUpdateInput.displayName = colonyDisplayName;
+                        }
+                        if (colonyAvatar && colonyAvatar.image) {
+                          metadataUpdateInput.avatar = colonyAvatar.image;
+                        }
+
+                        /* Create the colony's metadata entry */
+                        try {
+                          await graphQL(
+                            createColonyMetadata,
+                            { input: metadataUpdateInput },
+                            `${process.env.AWS_APPSYNC_ADDRESS}/graphql`,
+                            { 'x-api-key': process.env.AWS_APPSYNC_KEY },
+                          );
+                        } catch (error) {
+                          //
                         }
                       }
                     }
@@ -331,6 +393,8 @@ const run = async () => {
                   }
                 },
               );
+
+return;
 
               // extensions
               const { extensionsHashMap, historicColonyExtensions } = await runBlock(
