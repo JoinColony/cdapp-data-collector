@@ -41,6 +41,7 @@ import {
 import {
   attemptCreateToken,
   attemptToAddTokenToColony,
+  attemptCreateUser,
 } from './mutationHelpers.js';
 
 dotenv.config();
@@ -461,7 +462,72 @@ const run = async () => {
                 },
               );
 
-return;
+              // colony server data
+              const colonySubscribers = await runBlock(
+                `colony-${colonyId}-server-data`,
+                async () => {
+                  const colonySubscribers = await getColonySubscribers(currentColonyClient.address);
+
+                  // subscribers
+                  if (colonySubscribers && colonySubscribers.length) {
+                    console.log()
+
+                    for (let colonySubscriberIndex = 0; colonySubscriberIndex < colonySubscribers.length; colonySubscriberIndex += 1) {
+
+                      // multi line display
+
+                      // console.log()
+                      // console.log(`Subscriber #${colonySubscriberIndex + 1}`)
+                      // console.log('Colony Subscriber Display Address:', colonySubscribers[colonySubscriberIndex].id);
+                      // console.log('Colony Subscriber Name:', colonySubscribers[colonySubscriberIndex].profile.username);
+
+                      // if (colonySubscribers[colonySubscriberIndex].profile.displayName) {
+                      //   console.log('Colony Subscriber Display Name:', colonySubscribers[colonySubscriberIndex].profile.displayName);
+                      // }
+
+                      // if (colonySubscribers[colonySubscriberIndex].profile.avatarHash) {
+                      //   const subscriberAvatar = await getIpfsHash(colonySubscribers[colonySubscriberIndex].profile.avatarHash);
+
+                      //   if (subscriberAvatar.image) {
+                      //     console.log('Colony Subscriber Avatar:', subscriberAvatar.image.slice(0, 40), '...');
+                      //   } else {
+                      //     console.log('Colony Subscriber Avatar Hash:', colonySubscribers[colonySubscriberIndex].profile.avatarHash);
+                      //   }
+                      // }
+
+                      // single line display
+
+                      let subscriberAvatar = { image: false };
+                      if (colonySubscribers[colonySubscriberIndex].profile.avatarHash) {
+                        subscriberAvatar = await getIpfsHash(colonySubscribers[colonySubscriberIndex].profile.avatarHash);
+                      }
+
+                      const profileObject = {
+                        ...colonySubscribers[colonySubscriberIndex].profile,
+                        name: colonySubscribers[colonySubscriberIndex].profile.username,
+                      };
+
+                      if (subscriberAvatar.image) {
+                        profileObject.avatar = subscriberAvatar.image;
+                      }
+
+                      await attemptCreateUser(profileObject);
+
+                      console.log(
+                        `Subscriber #${colonySubscriberIndex + 1}`,
+                        'Address:', colonySubscribers[colonySubscriberIndex].id,
+                        'Name:', colonySubscribers[colonySubscriberIndex].profile.username,
+                        colonySubscribers[colonySubscriberIndex].profile.displayName ? `(${colonySubscribers[colonySubscriberIndex].profile.displayName}) Avatar:` : 'Avatar:',
+                        !!subscriberAvatar.image,
+                      );
+                    }
+                  }
+
+                  return colonySubscribers;
+                },
+              );
+
+              return;
 
               // extensions
               const { extensionsHashMap, historicColonyExtensions } = await runBlock(
@@ -593,59 +659,6 @@ return;
                   });
 
                   return { extensionsHashMap, historicColonyExtensions };
-                },
-              );
-
-              // colony server data
-              const colonySubscribers = await runBlock(
-                `colony-${colonyId}-server-data`,
-                async () => {
-                  const colonySubscribers = await getColonySubscribers(currentColonyClient.address);
-
-                  // subscribers
-                  if (colonySubscribers && colonySubscribers.length) {
-                    console.log()
-
-                    for (let colonySubscriberIndex = 0; colonySubscriberIndex < colonySubscribers.length; colonySubscriberIndex += 1) {
-                      // multi line display
-
-                      // console.log()
-                      // console.log(`Subscriber #${colonySubscriberIndex + 1}`)
-                      // console.log('Colony Subscriber Display Address:', colonySubscribers[colonySubscriberIndex].id);
-                      // console.log('Colony Subscriber Name:', colonySubscribers[colonySubscriberIndex].profile.username);
-
-                      // if (colonySubscribers[colonySubscriberIndex].profile.displayName) {
-                      //   console.log('Colony Subscriber Display Name:', colonySubscribers[colonySubscriberIndex].profile.displayName);
-                      // }
-
-                      // if (colonySubscribers[colonySubscriberIndex].profile.avatarHash) {
-                      //   const subscriberAvatar = await getIpfsHash(colonySubscribers[colonySubscriberIndex].profile.avatarHash);
-
-                      //   if (subscriberAvatar.image) {
-                      //     console.log('Colony Subscriber Avatar:', subscriberAvatar.image.slice(0, 40), '...');
-                      //   } else {
-                      //     console.log('Colony Subscriber Avatar Hash:', colonySubscribers[colonySubscriberIndex].profile.avatarHash);
-                      //   }
-                      // }
-
-                      // single line display
-
-                      let subscriberAvatar = { image: false };
-                      if (colonySubscribers[colonySubscriberIndex].profile.avatarHash) {
-                        subscriberAvatar = await getIpfsHash(colonySubscribers[colonySubscriberIndex].profile.avatarHash);
-                      }
-
-                      console.log(
-                        `Subscriber #${colonySubscriberIndex + 1}`,
-                        'Address:', colonySubscribers[colonySubscriberIndex].id,
-                        'Name:', colonySubscribers[colonySubscriberIndex].profile.username,
-                        colonySubscribers[colonySubscriberIndex].profile.displayName ? `(${colonySubscribers[colonySubscriberIndex].profile.displayName}) Avatar:` : 'Avatar:',
-                        !!subscriberAvatar.image,
-                      );
-                    }
-                  }
-
-                  return colonySubscribers;
                 },
               );
 

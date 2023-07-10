@@ -47,3 +47,11 @@ export const createDomain = /* GraphQL */ `
     }
   }
 `;
+
+export const createUser = /* GraphQL */ `
+  mutation CreateUniqueUser($input: CreateUniqueUserInput!) {
+    createUniqueUser(input: $input) {
+      id
+    }
+  }
+`;

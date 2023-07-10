@@ -384,3 +384,13 @@ export const getColonyToken = /* GraphQL */ `
     }
   }
 `;
+
+export const getUserByName = /* GraphQL */ `
+  query GetUserByName($name: String!) {
+    getUserByName(name: $name ) {
+      items {
+        name
+      }
+    }
+  }
+`;
