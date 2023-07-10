@@ -8,11 +8,13 @@ import {
   createToken,
   createColonyTokens,
   createUser,
+  subscribeUserToColony,
 } from "./mutations.js";
 import {
   getTokenByAddress,
   getColonyToken,
   getUserByName,
+  getWatchedColonies,
 } from './queries.js';
 import graphQl from "./graphQl.js";
 import networkClient from "./networkClient.js";
@@ -161,6 +163,44 @@ export const attemptCreateUser = async (profile) => await runBlock(
               updatedAt,
               website,
             },
+          },
+        },
+        `${process.env.AWS_APPSYNC_ADDRESS}/graphql`,
+        { 'x-api-key': process.env.AWS_APPSYNC_KEY },
+      );
+    } catch (error) {
+      //
+    }
+  },
+);
+
+export const attemptSubscribeToColony = async (colonyAddress, userAddress) => await runBlock(
+  `subscribe-${userAddress}-colony-${colonyAddress}-${nanoid()}`,
+  async () => {
+
+    // fetch current user <> colony relationship from the db, see if it exists already
+    // as we'll only add it in, if it doesn't exist
+    const { data } = await graphQl(
+      getWatchedColonies,
+      { colonyAddress, userAddress },
+      `${process.env.AWS_APPSYNC_ADDRESS}/graphql`,
+      { 'x-api-key': process.env.AWS_APPSYNC_KEY },
+    );
+
+    const [existingRelationship] = data && data.listWatchedColonies && data.listWatchedColonies.items || [];
+
+    // no point in going forward, it already exists
+    if (existingRelationship) {
+      return;
+    }
+
+    try {
+      await graphQl(
+        subscribeUserToColony,
+        {
+          input: {
+            userID: userAddress,
+            colonyID: colonyAddress,
           },
         },
         `${process.env.AWS_APPSYNC_ADDRESS}/graphql`,

@@ -42,6 +42,7 @@ import {
   attemptCreateToken,
   attemptToAddTokenToColony,
   attemptCreateUser,
+  attemptSubscribeToColony,
 } from './mutationHelpers.js';
 
 dotenv.config();
@@ -79,7 +80,7 @@ const run = async () => {
   console.log();
   console.log('Current Block:', currentBlock.number);
   console.log('Fetching up to Block:', args.endBlock);
-  console.log('Block difference:', args.endBlock - currentBlock.number);
+  console.log('Block difference:', currentBlock.number - args.endBlock, 'blocks behind chain');
 
   await runBlock(
     'total-runtime',
@@ -512,6 +513,12 @@ const run = async () => {
                       }
 
                       await attemptCreateUser(profileObject);
+
+                      // user profile should already be created at this point
+                      await attemptSubscribeToColony(
+                        utils.getAddress(currentColonyClient.address),
+                        utils.getAddress(colonySubscribers[colonySubscriberIndex].id),
+                      );
 
                       console.log(
                         `Subscriber #${colonySubscriberIndex + 1}`,

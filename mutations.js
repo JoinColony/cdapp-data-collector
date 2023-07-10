@@ -55,3 +55,11 @@ export const createUser = /* GraphQL */ `
     }
   }
 `;
+
+export const subscribeUserToColony = /* GraphQL */ `
+  mutation SubscribeUserToColony($input: CreateWatchedColoniesInput!) {
+    createWatchedColonies(input: $input) {
+      id
+    }
+  }
+`;

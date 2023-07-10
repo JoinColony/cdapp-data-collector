@@ -394,3 +394,19 @@ export const getUserByName = /* GraphQL */ `
     }
   }
 `;
+
+// used to detect if a particular user is already subscribed to a colony
+export const getWatchedColonies = /* GraphQL */ `
+  query getWatchedColonies($colonyAddress: ID!, $userAddress: ID!) {
+    listWatchedColonies(
+      filter: {
+        userID: { eq: $userAddress },
+        colonyID: { eq: $colonyAddress }
+      }
+    ) {
+      items {
+        id
+      }
+    }
+  }
+`;
