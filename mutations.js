@@ -28,6 +28,22 @@ export const createColonyTokens = /* GraphQL */ `
   mutation CreateColonyTokens($input: CreateColonyTokensInput!) {
     createColonyTokens(input: $input) {
       id
+    }
   }
-}
+`;
+
+export const createDomainMetadata = /* GraphQL */ `
+  mutation CreateDomainMetadata($input: CreateDomainMetadataInput!) {
+    createDomainMetadata(input: $input) {
+      id
+    }
+  }
+`;
+
+export const createDomain = /* GraphQL */ `
+  mutation CreateDomain($input: CreateDomainInput!) {
+    createDomain(input: $input) {
+      id
+    }
+  }
 `;

@@ -16,6 +16,7 @@ import {
   throttle,
   ColonyActionType,
   detectMotionType,
+  DomainColorMap,
 } from './helpers.js';
 
 import {
@@ -33,6 +34,8 @@ import {
 import {
   createUniqueColony,
   createColonyMetadata,
+  createDomain,
+  createDomainMetadata,
 } from './mutations.js';
 
 import {
@@ -263,8 +266,6 @@ const run = async () => {
                           isWhitelistActivated
                         } = colonyMetadata.data;
 
-                        console.log(isWhitelistActivated)
-
                         console.log();
                         console.log('Ipfs Display Name:', colonyDisplayName);
 
@@ -402,10 +403,58 @@ const run = async () => {
                         subgraphDomainMetadataValue = await getIpfsHash(subgraphDomainMetadataHash);
                       }
 
+                      const domainName = `${subgraphDomainMetadataValue.domainName || subgraphDomainMetadataValue.data && subgraphDomainMetadataValue.data.domainName || subgraphDomainName},`;
+                      const domainColor = DomainColorMap[subgraphDomainMetadataValue && subgraphDomainMetadataValue.domainColor || subgraphDomainMetadataValue && subgraphDomainMetadataValue.data && subgraphDomainMetadataValue.data.domainColor || 0];
+                      const domainDescription = `${subgraphDomainMetadataValue.domainPurpose || subgraphDomainMetadataValue.data && subgraphDomainMetadataValue.data.domainPurpose || null},`;
+
+                      const [skillId, fundingPotId] = await currentColonyClient.getDomain(
+                        subgraphDomainChainId,
+                      );
+
+                      /* Create the domains's metadata entry */
+                      try {
+                        await graphQL(
+                          createDomainMetadata,
+                          {
+                            input: {
+                              id: `${utils.getAddress(currentColonyClient.address)}_${subgraphDomainChainId}`,
+                              color: domainColor,
+                              name: domainName,
+                              description: domainDescription,
+                            },
+                          },
+                          `${process.env.AWS_APPSYNC_ADDRESS}/graphql`,
+                          { 'x-api-key': process.env.AWS_APPSYNC_KEY },
+                        );
+                      } catch (error) {
+                        //
+                      }
+
+                      /* Create the domain entry */
+                      try {
+                        await graphQL(
+                          createDomain,
+                          {
+                            input: {
+                              id: `${utils.getAddress(currentColonyClient.address)}_${subgraphDomainChainId}`,
+                              colonyId: utils.getAddress(currentColonyClient.address),
+                              isRoot: parseInt(subgraphDomainChainId, 10) === 1,
+                              nativeId: parseInt(subgraphDomainChainId, 10),
+                              nativeSkillId: skillId.toNumber(),
+                              nativeFundingPotId: fundingPotId.toNumber(),
+                            },
+                          },
+                          `${process.env.AWS_APPSYNC_ADDRESS}/graphql`,
+                          { 'x-api-key': process.env.AWS_APPSYNC_KEY },
+                        );
+                      } catch (error) {
+                        //
+                      }
+
                       console.log(
                         `Domain #${subgraphDomainChainId}`,
-                        'Name:', `${subgraphDomainMetadataValue.domainName || subgraphDomainMetadataValue.data && subgraphDomainMetadataValue.data.domainName || subgraphDomainName},`,
-                        'Color:', subgraphDomainMetadataValue.domainColor || subgraphDomainMetadataValue.data && subgraphDomainMetadataValue.data.domainColor
+                        'Name:', domainName,
+                        'Color:', domainColor,
                       );
                     }
                   }

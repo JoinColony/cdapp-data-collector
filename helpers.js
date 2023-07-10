@@ -61,6 +61,25 @@ export const ColonyMotionsTypes = {
   makeArbitraryTransactions: 'ARBITRARTY_TRANSACTION',
 };
 
+export const DomainColorMap = {
+  0: 'LIGHT_PINK',
+  1: 'PINK',
+  2: 'BLACK',
+  3: 'EMERALD_GREEN',
+  4: 'BLUE',
+  5: 'YELLOW',
+  6: 'RED',
+  7: 'GREEN',
+  8: 'PERIWINKLE',
+  9: 'GOLD',
+  10: 'AQUA',
+  11: 'BLUE_GREY',
+  12: 'PURPLE',
+  13: 'ORANGE',
+  14: 'MAGENTA',
+  15: 'PURPLE_GREY',
+}
+
 export const getToken = async (address = constants.AddressZero) => await runBlock(
   `get-token-${nanoid()}`,
   async () => {
