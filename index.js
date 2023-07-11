@@ -38,6 +38,7 @@ import {
   createDomainMetadata,
   createExtension,
   updateExtension,
+  createRoleEntry,
 } from './mutations.js';
 
 import {
@@ -767,7 +768,7 @@ const run = async () => {
                 },
               );
 
-              return;
+              // return;
 
               // user permissions
               await runBlock(
@@ -872,54 +873,100 @@ const run = async () => {
 
                   console.log();
 
-                  Object.keys(reducedColonyPermissions).map((addressWithPermissions, colonyPermissionsIndex) => {
-                    const permissionsEntry = reducedColonyPermissions[addressWithPermissions];
+                  await Promise.all(
+                    Object.keys(reducedColonyPermissions).map(async (addressWithPermissions, colonyPermissionsIndex) => {
+                      const permissionsEntry = reducedColonyPermissions[addressWithPermissions];
 
-                    // display purpouses only
-                    const subscriber = colonySubscribers.find(({ id }) => id === addressWithPermissions);
-                    const username = subscriber && subscriber.profile ? subscriber.profile.username : undefined;
-                    const extension = historicColonyExtensions.find(({ id }) => id === addressWithPermissions.toLowerCase());
-                    const extensionName = extension && extension.hash ? extensionsHashMap[extension.hash] : undefined;
-                    // maybe colony and token as well...
-                    const displayName = username || extensionName;
+                      // display purpouses only
+                      const subscriber = colonySubscribers.find(({ id }) => id === addressWithPermissions);
+                      const username = subscriber && subscriber.profile ? subscriber.profile.username : undefined;
+                      const extension = historicColonyExtensions.find(({ id }) => id === addressWithPermissions.toLowerCase());
+                      const extensionName = extension && extension.hash ? extensionsHashMap[extension.hash] : undefined;
+                      // maybe colony and token as well...
+                      const displayName = username || extensionName;
 
-                    // multiline display
+                      // multiline display
 
-                    // console.log()
-                    // console.log(`Permission Entry #${colonyPermissionsIndex + 1}`)
-                    // console.log('Permissioned Address:', addressWithPermissions);
-                    // if (displayName) {
-                    //   console.log('Permissioned Name:', displayName);
-                    // }
-                    // Object.keys(permissionsEntry).map((domainId) => {
-                    //   console.log(
-                    //     `Permissions in Domain #${domainId}:`,
-                    //     Object.keys(permissionsEntry[domainId]).map((roleName) => {
-                    //       if (permissionsEntry[domainId][roleName]) {
-                    //         return parseInt(roleName.replace('role_', ''), 10);
-                    //       }
-                    //     }).filter(entry => entry >= 0),
-                    //   );
-                    // });
+                      // console.log()
+                      // console.log(`Permission Entry #${colonyPermissionsIndex + 1}`)
+                      // console.log('Permissioned Address:', addressWithPermissions);
+                      // if (displayName) {
+                      //   console.log('Permissioned Name:', displayName);
+                      // }
+                      // Object.keys(permissionsEntry).map((domainId) => {
+                      //   console.log(
+                      //     `Permissions in Domain #${domainId}:`,
+                      //     Object.keys(permissionsEntry[domainId]).map((roleName) => {
+                      //       if (permissionsEntry[domainId][roleName]) {
+                      //         return parseInt(roleName.replace('role_', ''), 10);
+                      //       }
+                      //     }).filter(entry => entry >= 0),
+                      //   );
+                      // });
 
-                    // single line display
+                      // single line display
 
-                    Object.keys(permissionsEntry).map((domainId) => {
-                      const domainPermissions = Object.keys(permissionsEntry[domainId]).map((roleName) => {
-                        if (permissionsEntry[domainId][roleName]) {
-                          return parseInt(roleName.replace('role_', ''), 10);
-                        }
-                      }).filter(entry => entry >= 0);
-                      console.log(
-                        'Address w/ Permissions:', addressWithPermissions,
-                        displayName ? `(${displayName}) Domain:` : 'Domain:',
-                        `#${domainId}`,
-                        'Roles:', domainPermissions,
+                      await Promise.all(
+                        Object.keys(permissionsEntry).map(async (domainId) => {
+
+                          const roleDatabaseId = `${utils.getAddress(currentColonyClient.address)}_${domainId}_${addressWithPermissions}_roles`;
+                          const domainDatabaseId = `${utils.getAddress(currentColonyClient.address)}_${domainId}`;
+
+                          try {
+                            await graphQL(
+                              createRoleEntry,
+                              {
+                                input: {
+                                  id: roleDatabaseId,
+                                  latestBlock: args.endBlock,
+                                  // Link the Domain Model
+                                  domainId: domainDatabaseId,
+                                  // Link the Colony Model
+                                  colonyRolesId: utils.getAddress(currentColonyClient.address),
+                                  /*
+                                   * @NOTE Link the target
+                                   *
+                                   * Note that this handler will fire even for events where the target
+                                   * is something or someone not in the database.
+                                   *
+                                   * We try to account for this, by linking address to either a user, colony, or
+                                   * extension via the target address, but it can happen regardless as the
+                                   * address can be totally random
+                                   *
+                                   * Make sure to be aware of that when fetching the query (you can still fetch
+                                   * the "targetAddress" value manually, and linking it yourself to the
+                                   * appropriate entity)
+                                   */
+                                  targetAddress: addressWithPermissions,
+                                  ...permissionsEntry[domainId],
+                                },
+                              },
+                              `${process.env.AWS_APPSYNC_ADDRESS}/graphql`,
+                              { 'x-api-key': process.env.AWS_APPSYNC_KEY },
+                            );
+                          } catch (error) {
+                            //
+                          }
+
+                          const domainPermissions = Object.keys(permissionsEntry[domainId]).map((roleName) => {
+                            if (permissionsEntry[domainId][roleName]) {
+                              return parseInt(roleName.replace('role_', ''), 10);
+                            }
+                          }).filter(entry => entry >= 0);
+                          console.log(
+                            'Address w/ Permissions:', addressWithPermissions,
+                            displayName ? `(${displayName}) Domain:` : 'Domain:',
+                            `#${domainId}`,
+                            'Roles:', domainPermissions,
+                          );
+                        }),
                       );
-                    });
-                  });
+                    }),
+                  );
                 },
               );
+
+              return;
 
               // actions
               await runBlock(

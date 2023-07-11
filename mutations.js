@@ -79,3 +79,11 @@ export const updateExtension = /* GraphQL */ `
     }
   }
 `;
+
+export const createRoleEntry = /* GraphQL */ `
+  mutation CreateRoleEntry($input: CreateColonyRoleInput!) {
+    createColonyRole(input: $input) {
+      id
+    }
+  }
+`;
