@@ -47,6 +47,7 @@ import {
   attemptCreateUser,
   attemptSubscribeToColony,
   attemptToAddTokenToUser,
+  createActionEntry,
 } from './mutationHelpers.js';
 
 dotenv.config();
@@ -984,8 +985,6 @@ const run = async () => {
                 },
               );
 
-              return;
-
               // actions
               await runBlock(
                 `colony-${colonyId}-actions-data`,
@@ -1052,7 +1051,8 @@ const run = async () => {
                       const {
                         id,
                         address,
-                        timestamp
+                        timestamp,
+                        transaction,
                       } = currentAction;
                       return {
                         ...reducedActions,
@@ -1061,7 +1061,8 @@ const run = async () => {
                           address,
                           name: actionName,
                           transactionHash: actionTxHash,
-                          timestamp,
+                          timestamp: parseInt(timestamp, 10),
+                          blockNumber: parseInt(transaction.block.number.replace('block_', ''), 10),
                           values: [{
                             name: actionName,
                             ...values,
@@ -1115,28 +1116,42 @@ const run = async () => {
 
                   console.log();
 
-                  Object.keys(reducedColonyActions).map((colonyActionTransactionHash, colonyActionIndex) => {
-                    const colonyAction = reducedColonyActions[colonyActionTransactionHash];
+                  await Promise.all(
+                    Object.keys(reducedColonyActions).map(async (colonyActionTransactionHash, colonyActionIndex) => {
+                      const colonyAction = reducedColonyActions[colonyActionTransactionHash];
 
-                    // multi line display
+                      // console.log(colonyAction);
 
-                    // console.log()
-                    // console.log(`Colony Action #${colonyActionIndex + 1}`)
-                    // console.log('Colony Action Name:', colonyAction.name);
-                    // console.log('Colony Action TX:', colonyAction.transactionHash);
-                    // console.log('Colony Action Time:', colonyAction.timestamp);
-                    // console.log('Colony Action Values:', colonyAction.values);
+                      await createActionEntry(currentColonyClient, colonyAction);
 
-                    // single line display
+                      // multi line display
 
-                    console.log(
-                      `Action #${colonyActionIndex + 1}`,
-                      'TX:', colonyAction.transactionHash,
-                      'Type:', detectActionType(colonyAction.values),
-                    );
-                  });
+                      // console.log()
+                      // console.log(`Colony Action #${colonyActionIndex + 1}`)
+                      // console.log('Colony Action Name:', colonyAction.name);
+                      // console.log('Colony Action TX:', colonyAction.transactionHash);
+                      // console.log('Colony Action Time:', colonyAction.timestamp);
+                      // console.log('Colony Action Values:', colonyAction.values);
+
+                      // single line display
+
+                      if (detectActionType(colonyAction.values) === 'MINT_TOKENS') {
+                        console.log(
+                          `Action #${colonyActionIndex + 1}`,
+                          'TX:', colonyAction.transactionHash,
+                          'Type:', detectActionType(colonyAction.values),
+                        );
+                      }
+                    }),
+                  );
+
+
 
                   const actionsFromEventsCount = Object.keys(reducedColonyActions).length;
+
+                  // console.log(currentColonyOneTxs);
+
+                  return;
 
                   currentColonyOneTxs.map(({ transaction: { hash }}, index) => {
                     // single line display
@@ -1149,6 +1164,8 @@ const run = async () => {
                   });
                 },
               );
+
+              return;
 
               // motions
               await runBlock(

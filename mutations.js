@@ -95,3 +95,11 @@ export const createUserTokens = /* GraphQL */ `
     }
 }
 `;
+
+export const createAction = /* GraphQL */ `
+  mutation CreateAction($input: CreateColonyActionInput!) {
+    createColonyAction(input: $input) {
+      id
+    }
+  }
+`;

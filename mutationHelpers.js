@@ -3,13 +3,18 @@ import dotenv from 'dotenv';
 import colonyJS from './node_modules/@colony/colony-js/dist/cjs/index.js';
 import { utils } from 'ethers';
 
-import { runBlock } from "./helpers.js";
+import {
+  runBlock,
+  detectActionType,
+  ColonyActionType,
+} from "./helpers.js";
 import {
   createToken,
   createColonyTokens,
   createUser,
   subscribeUserToColony,
   createUserTokens,
+  createAction,
 } from "./mutations.js";
 import {
   getTokenByAddress,
@@ -249,5 +254,66 @@ export const attemptToAddTokenToUser = async (userAddress, tokenAddress) => awai
     } catch (error) {
       //
     }
+  },
+);
+
+export const createActionEntry = async (colonyClient, action) => await runBlock(
+  `add-colony-${colonyClient.address}-action-${action.transactionHash}-${nanoid()}`,
+  async () => {
+    const {
+      transactionHash,
+      blockNumber,
+      timestamp,
+      values,
+    } = action;
+
+    const type = detectActionType(values);
+
+    const inputData = {
+      id: transactionHash,
+      colonyId: utils.getAddress(colonyClient.address),
+      blockNumber,
+      createdAt: new Date(timestamp * 1000).toISOString(),
+      showInActionsList: true, // todo
+      type,
+    };
+
+    switch (type) {
+      case ColonyActionType.MintTokens: {
+        const [{
+          agent: initiatorAddress,
+          who: recipientAddress,
+          amount
+        }] = values;
+
+        if (amount && amount !== '0') {
+          // data to be written to the db
+          try {
+            await graphQl(
+              createAction,
+              {
+                input: {
+                  ...inputData,
+                  initiatorAddress,
+                  recipientAddress,
+                  amount: amount.toString(),
+                  tokenAddress: utils.getAddress(colonyClient.tokenClient.address),
+                  fromDomainId: `${utils.getAddress(colonyClient.address)}_${colonyJS.Id.RootDomain}`
+                },
+              },
+              `${process.env.AWS_APPSYNC_ADDRESS}/graphql`,
+              { 'x-api-key': process.env.AWS_APPSYNC_KEY },
+            );
+          } catch (error) {
+            //
+          }
+        }
+        return;
+      };
+      default: {
+        return;
+      };
+    }
+
   },
 );
