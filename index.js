@@ -36,6 +36,7 @@ import {
   createColonyMetadata,
   createDomain,
   createDomainMetadata,
+  createExtension,
 } from './mutations.js';
 
 import {
@@ -534,8 +535,6 @@ const run = async () => {
                 },
               );
 
-              return;
-
               // extensions
               const { extensionsHashMap, historicColonyExtensions } = await runBlock(
                 `colony-${colonyId}-extension-data`,
@@ -628,7 +627,7 @@ const run = async () => {
                           deprecated,
                           initialized,
                           installedBy: receipt.from,
-                          installedAt: timestamp,
+                          installedAt: parseInt(timestamp, 10),
                           version: version.toNumber(),
                           // permissions: permissions.sort(),
                         };
@@ -638,36 +637,66 @@ const run = async () => {
 
                   console.log();
 
-                  Object.keys(currentColonyExtensions).map(extensionAddress => {
-                    const extension = currentColonyExtensions[extensionAddress];
-                    // multi line display
+                  await Promise.all(
+                    Object.keys(currentColonyExtensions).map(async (extensionAddress) => {
+                      const extension = currentColonyExtensions[extensionAddress];
+                      // multi line display
 
-                    // console.log();
-                    // console.log('Chain Extension Address:', extension.address);
-                    // console.log('Chain Extension Name:', extension.name);
-                    // console.log('Chain Extension Installed By:', extension.installedBy);
-                    // console.log('Chain Extension Installed At:', extension.installedAt);
-                    // console.log('Chain Extension Version:', extension.version);
-                    // // console.log(
-                    // //   'Chain Extension Roles:',
-                    // //   extension.permissions.map(role => colonyJS.ColonyRole[role]),
-                    // // );
-                    // if (extension.deprecated) {
-                    //   console.log('Chain Extension Deprecated:', extension.deprecated);
-                    // }
+                      // console.log();
+                      // console.log('Chain Extension Address:', extension.address);
+                      // console.log('Chain Extension Name:', extension.name);
+                      // console.log('Chain Extension Installed By:', extension.installedBy);
+                      // console.log('Chain Extension Installed At:', extension.installedAt);
+                      // console.log('Chain Extension Version:', extension.version);
+                      // // console.log(
+                      // //   'Chain Extension Roles:',
+                      // //   extension.permissions.map(role => colonyJS.ColonyRole[role]),
+                      // // );
+                      // if (extension.deprecated) {
+                      //   console.log('Chain Extension Deprecated:', extension.deprecated);
+                      // }
 
-                    // single line display
-                    console.log(
-                      'Extension Address:', extension.address,
-                      'Name:', extension.name,
-                      'Version:', extension.version,
-                      extension.deprecated ? '(Deprecated)' : true,
-                    );
-                  });
+                      /* Create the extension's entry */
+                      try {
+                        const all = await graphQL(
+                          createExtension,
+                          {
+                            input: {
+                              id: extension.address,
+                              colonyId: utils.getAddress(currentColonyClient.address),
+                              hash: extension.hash,
+                              version: extension.version,
+                              installedBy: extension.installedBy,
+                              installedAt: extension.installedAt,
+                              isInitialized: extension.initialized,
+                              isDeprecated: extension.deprecated,
+                              isDeleted: false,
+                            },
+                          },
+                          `${process.env.AWS_APPSYNC_ADDRESS}/graphql`,
+                          { 'x-api-key': process.env.AWS_APPSYNC_KEY },
+                        );
+                        console.log(all)
+                      } catch (error) {
+                        //
+                        console.log(error)
+                      }
+
+                      // single line display
+                      console.log(
+                        'Extension Address:', extension.address,
+                        'Name:', extension.name,
+                        'Version:', extension.version,
+                        extension.deprecated ? '(Deprecated)' : true,
+                      );
+                    }),
+                  );
 
                   return { extensionsHashMap, historicColonyExtensions };
                 },
               );
+
+              return;
 
               // user permissions
               await runBlock(
