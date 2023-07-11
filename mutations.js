@@ -87,3 +87,11 @@ export const createRoleEntry = /* GraphQL */ `
     }
   }
 `;
+
+export const createUserTokens = /* GraphQL */ `
+  mutation CreateUserTokens($input: CreateUserTokensInput!) {
+    createUserTokens(input: $input) {
+      id
+    }
+}
+`;

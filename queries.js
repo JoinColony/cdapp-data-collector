@@ -410,3 +410,19 @@ export const getWatchedColonies = /* GraphQL */ `
     }
   }
 `;
+
+// used to detect if  a particular token was added to a user
+export const getUserToken = /* GraphQL */ `
+  query GetUserToken($userAddress: ID!, $tokenAddress: ID!) {
+    listUserTokens(
+      filter: {
+        tokenID: { eq: $tokenAddress },
+        userID: { eq: $userAddress }
+      }
+    ) {
+      items {
+        id
+      }
+    }
+  }
+`;

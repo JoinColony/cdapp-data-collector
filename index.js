@@ -46,6 +46,7 @@ import {
   attemptToAddTokenToColony,
   attemptCreateUser,
   attemptSubscribeToColony,
+  attemptToAddTokenToUser,
 } from './mutationHelpers.js';
 
 dotenv.config();
@@ -102,7 +103,11 @@ const run = async () => {
               console.log(''.padStart(18, '-'));
 
               // chain data
-              const { currentColonyClient, votingReputationClient } = await runBlock(
+              const {
+                currentColonyClient,
+                votingReputationClient,
+                currentColonyTokenClient,
+               } = await runBlock(
                 `colony-${colonyId}-chain-data`,
                 async () => {
                   console.log();
@@ -225,7 +230,11 @@ const run = async () => {
                     currentColonyToken.address,
                   );
 
-                  return { currentColonyClient, votingReputationClient };
+                  return {
+                    currentColonyClient,
+                    votingReputationClient,
+                    currentColonyTokenClient,
+                  };
                 },
               );
 
@@ -909,7 +918,7 @@ const run = async () => {
                       await Promise.all(
                         Object.keys(permissionsEntry).map(async (domainId) => {
 
-                          const roleDatabaseId = `${utils.getAddress(currentColonyClient.address)}_${domainId}_${addressWithPermissions}_roles`;
+                          const roleDatabaseId = `${utils.getAddress(currentColonyClient.address)}_${domainId}_${utils.getAddress(addressWithPermissions)}_roles`;
                           const domainDatabaseId = `${utils.getAddress(currentColonyClient.address)}_${domainId}`;
 
                           try {
@@ -937,7 +946,7 @@ const run = async () => {
                                    * the "targetAddress" value manually, and linking it yourself to the
                                    * appropriate entity)
                                    */
-                                  targetAddress: addressWithPermissions,
+                                  targetAddress: utils.getAddress(addressWithPermissions),
                                   ...permissionsEntry[domainId],
                                 },
                               },
@@ -946,6 +955,15 @@ const run = async () => {
                             );
                           } catch (error) {
                             //
+                          }
+
+                          // add the colony's native token to any user with root roles
+                          // (as we assume those users are the creators/admins of the colony)
+                          if (domainId === '1' && permissionsEntry[domainId].role_1) {
+                            await attemptToAddTokenToUser(
+                              utils.getAddress(addressWithPermissions),
+                              utils.getAddress(currentColonyTokenClient.address),
+                            );
                           }
 
                           const domainPermissions = Object.keys(permissionsEntry[domainId]).map((roleName) => {
