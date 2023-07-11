@@ -15,7 +15,7 @@
   },
   "homepage": "https://github.com/JoinColony/cdapp-data-collector#readme",
   "dependencies": {
-    "@colony/colony-js": "^6.3.6",
+    "@colony/colony-js": "^6.4.0",
     "dotenv": "^16.0.3",
     "ethers": "^5.7.2",
     "load-json-file": "^7.0.1",
