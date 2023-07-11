@@ -37,6 +37,7 @@ import {
   createDomain,
   createDomainMetadata,
   createExtension,
+  updateExtension,
 } from './mutations.js';
 
 import {
@@ -100,7 +101,7 @@ const run = async () => {
               console.log(''.padStart(18, '-'));
 
               // chain data
-              const currentColonyClient = await runBlock(
+              const { currentColonyClient, votingReputationClient } = await runBlock(
                 `colony-${colonyId}-chain-data`,
                 async () => {
                   console.log();
@@ -122,6 +123,17 @@ const run = async () => {
 
                   const currentColonyToken = await getToken(currentColonyClient.tokenClient.address);
                   const currentColonyTokenClient = currentColonyClient.tokenClient;
+
+                  // fallback for checking if the voting rep extension is installed or not
+                  // could be implemented more cleverly, but it does it's job for now
+                  let votingReputationClient = { address: constants.AddressZero };
+                  try {
+                    votingReputationClient = await currentColonyClient.getExtensionClient('VotingReputation');
+                  } catch (error) {
+                    //
+                  }
+
+                  console.log(votingReputationClient.address)
 
                   console.log('Chain Token Address:', currentColonyToken.address);
                   console.log('Chain Token Name:', currentColonyToken.name);
@@ -212,7 +224,7 @@ const run = async () => {
                     currentColonyToken.address,
                   );
 
-                  return currentColonyClient;
+                  return { currentColonyClient, votingReputationClient };
                 },
               );
 
@@ -562,7 +574,13 @@ const run = async () => {
 
                   const currentColonyExtensions = {};
                   await Promise.all(
-                    ['OneTxPayment', 'VotingReputation', 'CoinMachine', 'Whitelist'].map(async (extensionId) => {
+                    [
+                      'OneTxPayment',
+                      'VotingReputation',
+                      // This can basically handle all extension type, they're just not needed
+                      // 'CoinMachine',
+                      // 'Whitelist'
+                    ].map(async (extensionId) => {
                       const extensionHash = colonyJS.getExtensionHash(extensionId);
                       const extensionAddress = await networkClient.getExtensionInstallation(extensionHash, currentColonyClient.address);
                       if (extensionAddress !== constants.AddressZero) {
@@ -658,7 +676,7 @@ const run = async () => {
 
                       /* Create the extension's entry */
                       try {
-                        const all = await graphQL(
+                        await graphQL(
                           createExtension,
                           {
                             input: {
@@ -676,10 +694,63 @@ const run = async () => {
                           `${process.env.AWS_APPSYNC_ADDRESS}/graphql`,
                           { 'x-api-key': process.env.AWS_APPSYNC_KEY },
                         );
-                        console.log(all)
                       } catch (error) {
                         //
-                        console.log(error)
+                      }
+
+                      if (extension.name === 'VotingReputation') {
+                        // strait-up ripped from the block ingestor
+                        const [
+                          totalStakeFraction,
+                          voterRewardFraction,
+                          userMinStakeFraction,
+                          maxVoteFraction,
+                          stakePeriod,
+                          submitPeriod,
+                          revealPeriod,
+                          escalationPeriod,
+                        ] = (
+                          await Promise.all([
+                            votingReputationClient.getTotalStakeFraction(),
+                            votingReputationClient.getVoterRewardFraction(),
+                            votingReputationClient.getUserMinStakeFraction(),
+                            votingReputationClient.getMaxVoteFraction(),
+                            votingReputationClient.getStakePeriod(),
+                            votingReputationClient.getSubmitPeriod(),
+                            votingReputationClient.getRevealPeriod(),
+                            votingReputationClient.getEscalationPeriod(),
+                          ])
+                        ).map((bigNum) => bigNum.toString());
+
+                        const params = {
+                          votingReputation: {
+                            totalStakeFraction,
+                            voterRewardFraction,
+                            userMinStakeFraction,
+                            maxVoteFraction,
+                            stakePeriod,
+                            submitPeriod,
+                            revealPeriod,
+                            escalationPeriod,
+                          },
+                        };
+
+                        /* Update the voting rep extension with it's params */
+                        try {
+                          await graphQL(
+                            updateExtension,
+                            {
+                              input: {
+                                id: extension.address,
+                                params,
+                              },
+                            },
+                            `${process.env.AWS_APPSYNC_ADDRESS}/graphql`,
+                            { 'x-api-key': process.env.AWS_APPSYNC_KEY },
+                          );
+                        } catch (error) {
+                          //
+                        }
                       }
 
                       // single line display
@@ -1058,7 +1129,6 @@ const run = async () => {
                   }
 
                   const oneTxPaymentClient = await currentColonyClient.getExtensionClient('OneTxPayment');
-                  const votingReputationClient = await currentColonyClient.getExtensionClient('VotingReputation');
 
                   console.log();
 
@@ -1159,8 +1229,6 @@ const run = async () => {
                       };
                     }),
                   );
-
-                  const votingReputationClient = await currentColonyClient.getExtensionClient('VotingReputation');
 
                   console.log();
 

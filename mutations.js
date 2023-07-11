@@ -71,3 +71,11 @@ export const createExtension = /* GraphQL */ `
     }
   }
 `;
+
+export const updateExtension = /* GraphQL */ `
+  mutation updateExtension($input: UpdateColonyExtensionInput!) {
+    updateColonyExtension(input: $input) {
+      id
+    }
+  }
+`;
