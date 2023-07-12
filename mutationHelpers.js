@@ -270,7 +270,6 @@ export const createActionEntry = async (colonyClient, action) => await runBlock(
       timestamp,
       values,
       type,
-      metadataChangelog,
     } = action;
 
     const inputData = {
@@ -443,29 +442,47 @@ export const createActionEntry = async (colonyClient, action) => await runBlock(
         // }
         return;
       };
-      case ColonyActionType.ColonyEdit: {
+      case ColonyActionType.CreateDomain:
+      case ColonyActionType.EditDomain: {
         const [{
           agent: initiatorAddress,
+          domainId,
         }] = values;
 
-        try {
-          await graphQl(
-            createAction,
-            {
-              input: {
-                ...inputData,
-                initiatorAddress: utils.getAddress(initiatorAddress),
-                fromDomainId: `${utils.getAddress(colonyClient.address)}_${colonyJS.Id.RootDomain}`,
+        if (parseInt(domainId, 10) !== colonyJS.Id.RootDomain) {
+          try {
+            await graphQl(
+              createAction,
+              {
+                input: {
+                  ...inputData,
+                  initiatorAddress: utils.getAddress(initiatorAddress),
+                  fromDomainId: `${utils.getAddress(colonyClient.address)}_${domainId}`,
+                },
               },
-            },
-            `${process.env.AWS_APPSYNC_ADDRESS}/graphql`,
-            { 'x-api-key': process.env.AWS_APPSYNC_KEY },
-          );
-        } catch (error) {
-          //
+              `${process.env.AWS_APPSYNC_ADDRESS}/graphql`,
+              { 'x-api-key': process.env.AWS_APPSYNC_KEY },
+            );
+          } catch (error) {
+            //
+          }
         }
         return;
       };
+      // case ColonyActionType.CreateDomain: {
+      //   console.log({ type, values})
+      //   console.log('-----------')
+      //   return;
+      // }
+      // case ColonyActionType.EditDomain: {
+      //   const [{
+      //     agent: initiatorAddress,
+      //     domainId,
+      //   }] = values;
+      //   console.log({ type, values })
+      //   console.log('-----------')
+      //   return;
+      // }
       default: {
         return;
       };
