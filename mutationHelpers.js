@@ -281,7 +281,6 @@ export const createActionEntry = async (colonyClient, action) => await runBlock(
       type,
     };
 
-  // MoveFunds: 'MOVE_FUNDS',
   // UnlockToken: 'UNLOCK_TOKEN',
   // VersionUpgrade: 'VERSION_UPGRADE',
 
@@ -468,46 +467,78 @@ export const createActionEntry = async (colonyClient, action) => await runBlock(
         return;
       };
       case ColonyActionType.MoveFunds: {
-        const [{
-          agent: initiatorAddress,
-          fromPot,
-          toPot,
-          amount,
-          token: tokenAddress,
-        }] = values;
+        // const [{
+        //   agent: initiatorAddress,
+        //   fromPot,
+        //   toPot,
+        //   amount,
+        //   token: tokenAddress,
+        // }] = values;
 
-        let fromDomainId;
-        let toDomainId;
+        // let fromDomainId;
+        // let toDomainId;
+        // try {
+        //   // Only colonies post v5 have this method
+        //   fromDomainId = await colonyClient.getDomainFromFundingPot(fromPot);
+        //   toDomainId = await colonyClient.getDomainFromFundingPot(toPot);
+        // } catch (error) {
+        //   //
+        // }
+
+        // if (fromDomainId && toDomainId) {
+        //   try {
+        //     await graphQl(
+        //       createAction,
+        //       {
+        //         input: {
+        //           ...inputData,
+        //           initiatorAddress: utils.getAddress(initiatorAddress),
+        //           fromDomainId: `${utils.getAddress(colonyClient.address)}_${fromDomainId.toString()}`,
+        //           toDomainId: `${utils.getAddress(colonyClient.address)}_${toDomainId.toString()}`,
+        //           amount,
+        //           tokenAddress: utils.getAddress(tokenAddress),
+        //         },
+        //       },
+        //       `${process.env.AWS_APPSYNC_ADDRESS}/graphql`,
+        //       { 'x-api-key': process.env.AWS_APPSYNC_KEY },
+        //     );
+        //   } catch (error) {
+        //     //
+        //     console.log(error);
+        //   }
+        // }
+        return;
+      };
+      case ColonyActionType.UnlockToken: {
+        const [{ agent }] = values;
+
+        // for pre v5 colonies there's no address in the event,
+        // so we'll have to fetch it from the receipt
+        let initiatorAddress = agent;
+        if (!initiatorAddress) {
+          const receipt = await colonyClient.provider.getTransactionReceipt(transactionHash);
+          initiatorAddress = receipt.from;
+        }
+
         try {
-          // Only colonies post v5 have this method
-          fromDomainId = await colonyClient.getDomainFromFundingPot(fromPot);
-          toDomainId = await colonyClient.getDomainFromFundingPot(toPot);
+          await graphQl(
+            createAction,
+            {
+              input: {
+                ...inputData,
+                initiatorAddress: utils.getAddress(initiatorAddress),
+                fromDomainId: `${utils.getAddress(colonyClient.address)}_${colonyJS.Id.RootDomain}`,
+                tokenAddress: utils.getAddress(colonyClient.tokenClient.address),
+              },
+            },
+            `${process.env.AWS_APPSYNC_ADDRESS}/graphql`,
+            { 'x-api-key': process.env.AWS_APPSYNC_KEY },
+          );
         } catch (error) {
           //
+          console.log(error);
         }
 
-        if (fromDomainId && toDomainId) {
-          try {
-            await graphQl(
-              createAction,
-              {
-                input: {
-                  ...inputData,
-                  initiatorAddress: utils.getAddress(initiatorAddress),
-                  fromDomainId: `${utils.getAddress(colonyClient.address)}_${fromDomainId.toString()}`,
-                  toDomainId: `${utils.getAddress(colonyClient.address)}_${toDomainId.toString()}`,
-                  amount,
-                  tokenAddress: utils.getAddress(tokenAddress),
-                },
-              },
-              `${process.env.AWS_APPSYNC_ADDRESS}/graphql`,
-              { 'x-api-key': process.env.AWS_APPSYNC_KEY },
-            );
-          } catch (error) {
-            //
-            console.log(error);
-          }
-        }
         return;
       };
       default: {
