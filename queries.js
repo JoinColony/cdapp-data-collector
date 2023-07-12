@@ -163,6 +163,9 @@ export const getOneTxPayments = /* GraphQL */ `
           number: id
         }
       }
+      timestamp
+      fundamentalChainId,
+      nPayouts
       payment {
         recipient: to
         domain {
@@ -170,6 +173,7 @@ export const getOneTxPayments = /* GraphQL */ `
           name
         }
         fundingPot {
+          id
           fundingPotPayouts {
             id
             token {
@@ -178,10 +182,14 @@ export const getOneTxPayments = /* GraphQL */ `
               decimals
             }
             amount
+            fundingPotChainId
           }
         }
       }
-      timestamp
+      expenditure {
+        id
+      }
+
     }
   }
 `;

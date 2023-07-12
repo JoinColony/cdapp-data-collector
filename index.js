@@ -1118,7 +1118,7 @@ const run = async () => {
 
                       // console.log(colonyAction);
 
-                      await createActionEntry(currentColonyClient, colonyAction);
+                      // await createActionEntry(currentColonyClient, colonyAction);
 
                       // multi line display
 
@@ -1130,6 +1130,8 @@ const run = async () => {
                       // console.log('Colony Action Values:', colonyAction.values);
 
                       // single line display
+
+                      return;
 
                       switch (detectActionType(colonyAction.values)) {
                         case '':
@@ -1153,19 +1155,33 @@ const run = async () => {
 
                   const actionsFromEventsCount = Object.keys(reducedColonyActions).length;
 
-                  // console.log(currentColonyOneTxs);
+                  await Promise.all(
+                    currentColonyOneTxs.map(async (paymentAction, index) => {
+                      const {
+                        transaction: {
+                          hash,
+                          block: { number }
+                        },
+                        timestamp,
+                      } = paymentAction;
 
-                  return;
+                      await createActionEntry(currentColonyClient, {
+                        transactionHash: hash,
+                        blockNumber: parseInt(number.replace('block_', ''), 10),
+                        timestamp,
+                        values: [paymentAction],
+                      });
 
-                  currentColonyOneTxs.map(({ transaction: { hash }}, index) => {
-                    // single line display
+                      return;
 
-                    console.log(
-                      `Action #${actionsFromEventsCount + 1 + index}`,
-                      'TX:', hash,
-                      'Type:', ColonyActionType.Payment,
-                    );
-                  });
+                      // single line display
+                      console.log(
+                        `Action #${actionsFromEventsCount + 1 + index}`,
+                        'TX:', hash,
+                        'Type:', ColonyActionType.Payment,
+                      );
+                    }),
+                  )
                 },
               );
 

@@ -223,7 +223,7 @@ export const getColonySubscribers = async (address = constants.AddressZero) => a
 
 export const detectActionType = (actionEvents) => {
   for (let eventsIndex = 0; eventsIndex < actionEvents.length; eventsIndex += 1) {
-    const { name: eventSignature, amount } = actionEvents[eventsIndex];
+    const { name: eventSignature, amount, payment } = actionEvents[eventsIndex];
 
     switch (eventSignature) {
       case 'ColonyRoleSet(address,address,uint256,uint8,bool)':
@@ -260,6 +260,11 @@ export const detectActionType = (actionEvents) => {
         return ColonyActionType.EmitDomainReputationReward;
       }
       default:
+        // This way of detecting payment actions is a bit sketchy
+        // but it'll do for now since we're in crunch mode
+        if (!!payment) {
+          return ColonyActionType.Payment;
+        }
         return ColonyActionType.Generic;
     }
 

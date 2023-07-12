@@ -285,52 +285,48 @@ export const createActionEntry = async (colonyClient, action) => await runBlock(
   // ColonyEdit: 'COLONY_EDIT',
   // CreateDomain: 'CREATE_DOMAIN',
   // EditDomain: 'EDIT_DOMAIN',
-  // EmitDomainReputationPenalty: 'EMIT_DOMAIN_REPUTATION_PENALTY',
-  // EmitDomainReputationReward: 'EMIT_DOMAIN_REPUTATION_REWARD',
   // MoveFunds: 'MOVE_FUNDS',
-  // Payment: 'PAYMENT',
-  // Recovery: 'RECOVERY',
   // UnlockToken: 'UNLOCK_TOKEN',
   // VersionUpgrade: 'VERSION_UPGRADE',
 
     switch (type) {
-      // case ColonyActionType.MintTokens: {
-      //   const [{
-      //     agent: initiatorAddress,
-      //     who: recipientAddress,
-      //     amount
-      //   }] = values;
+      case ColonyActionType.MintTokens: {
+        // const [{
+        //   agent: initiatorAddress,
+        //   who: recipientAddress,
+        //   amount
+        // }] = values;
 
-      //   if (amount && amount !== '0') {
-      //     // data to be written to the db
-      //     try {
-      //       await graphQl(
-      //         createAction,
-      //         {
-      //           input: {
-      //             ...inputData,
-      //             initiatorAddress,
-      //             recipientAddress,
-      //             amount: amount.toString(),
-      //             tokenAddress: utils.getAddress(colonyClient.tokenClient.address),
-      //             fromDomainId: `${utils.getAddress(colonyClient.address)}_${colonyJS.Id.RootDomain}`
-      //           },
-      //         },
-      //         `${process.env.AWS_APPSYNC_ADDRESS}/graphql`,
-      //         { 'x-api-key': process.env.AWS_APPSYNC_KEY },
-      //       );
-      //     } catch (error) {
-      //       //
-      //     }
-      //   }
-      //   return;
-      // };
-      // case ColonyActionType.SetUserRoles: {
-      //   const receipt = await colonyClient.provider.getTransactionReceipt(
-      //     transactionHash,
-      //   );
+        // if (amount && amount !== '0') {
+        //   // data to be written to the db
+        //   try {
+        //     await graphQl(
+        //       createAction,
+        //       {
+        //         input: {
+        //           ...inputData,
+        //           initiatorAddress,
+        //           recipientAddress,
+        //           amount: amount.toString(),
+        //           tokenAddress: utils.getAddress(colonyClient.tokenClient.address),
+        //           fromDomainId: `${utils.getAddress(colonyClient.address)}_${colonyJS.Id.RootDomain}`
+        //         },
+        //       },
+        //       `${process.env.AWS_APPSYNC_ADDRESS}/graphql`,
+        //       { 'x-api-key': process.env.AWS_APPSYNC_KEY },
+        //     );
+        //   } catch (error) {
+        //     //
+        //   }
+        // }
+        // return;
+      };
+      case ColonyActionType.SetUserRoles: {
+        // const receipt = await colonyClient.provider.getTransactionReceipt(
+        //   transactionHash,
+        // );
 
-      //   const eventWithUser = values.find(({ user }) => !!user);
+        // const eventWithUser = values.find(({ user }) => !!user);
 
         // try {
         //   await graphQl(
@@ -365,48 +361,86 @@ export const createActionEntry = async (colonyClient, action) => await runBlock(
         // } catch (error) {
         //   //
         // }
-      //   return;
-      // };
+        return;
+      };
       case ColonyActionType.EmitDomainReputationPenalty:
       case ColonyActionType.EmitDomainReputationReward: {
+        // const [{
+        //   agent: initiatorAddress,
+        //   user: userAddress,
+        //   skillId,
+        //   amount,
+        // }] = values;
+
+        // const { data } = await graphQl(
+        //   getDomainFromSkill,
+        //   {
+        //     colonyAddress: utils.getAddress(colonyClient.address),
+        //     skillId: parseInt(skillId, 10),
+        //   },
+        //   `${process.env.AWS_APPSYNC_ADDRESS}/graphql`,
+        //   { 'x-api-key': process.env.AWS_APPSYNC_KEY },
+        // );
+
+        // const [domain] = data && data.listDomains && data.listDomains.items || [];
+
+        // if (domain && domain.nativeId) {
+        //   try {
+        //     await graphQl(
+        //       createAction,
+        //       {
+        //         input: {
+        //           ...inputData,
+        //           initiatorAddress,
+        //           recipientAddress: userAddress,
+        //           fromDomainId: `${utils.getAddress(colonyClient.address)}_${domain.nativeId}`,
+        //           amount,
+        //         },
+        //       },
+        //       `${process.env.AWS_APPSYNC_ADDRESS}/graphql`,
+        //       { 'x-api-key': process.env.AWS_APPSYNC_KEY },
+        //     );
+        //   } catch (error) {
+        //     //
+        //   }
+        // }
+        return;
+      };
+      case ColonyActionType.Payment: {
         const [{
-          agent: initiatorAddress,
-          user: userAddress,
-          skillId,
-          amount,
+          fundamentalChainId,
+          address: initiatorAddress,
+          payment: {
+            domain: { ethDomainId },
+            fundingPot: {
+              fundingPotPayouts: [{
+                token: { address: tokenAddress },
+                amount,
+              }],
+            },
+            recipient: recipientAddress,
+          }
         }] = values;
 
-        const { data } = await graphQl(
-          getDomainFromSkill,
-          {
-            colonyAddress: utils.getAddress(colonyClient.address),
-            skillId: parseInt(skillId, 10),
-          },
-          `${process.env.AWS_APPSYNC_ADDRESS}/graphql`,
-          { 'x-api-key': process.env.AWS_APPSYNC_KEY },
-        );
-
-        const [domain] = data && data.listDomains && data.listDomains.items || [];
-
-        if (domain && domain.nativeId) {
-          try {
-            await graphQl(
-              createAction,
-              {
-                input: {
-                  ...inputData,
-                  initiatorAddress,
-                  recipientAddress: userAddress,
-                  fromDomainId: `${utils.getAddress(colonyClient.address)}_${domain.nativeId}`,
-                  amount,
-                },
+        try {
+          await graphQl(
+            createAction,
+            {
+              input: {
+                ...inputData,
+                initiatorAddress,
+                recipientAddress,
+                fromDomainId: `${utils.getAddress(colonyClient.address)}_${ethDomainId}`,
+                amount,
+                tokenAddress,
+                fundamentalChainId: parseInt(fundamentalChainId, 10),
               },
-              `${process.env.AWS_APPSYNC_ADDRESS}/graphql`,
-              { 'x-api-key': process.env.AWS_APPSYNC_KEY },
-            );
-          } catch (error) {
-            //
-          }
+            },
+            `${process.env.AWS_APPSYNC_ADDRESS}/graphql`,
+            { 'x-api-key': process.env.AWS_APPSYNC_KEY },
+          );
+        } catch (error) {
+          //
         }
         return;
       };
