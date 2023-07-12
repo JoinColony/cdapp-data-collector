@@ -1,7 +1,7 @@
 import { nanoid } from "nanoid";
 import dotenv from 'dotenv';
 import colonyJS from './node_modules/@colony/colony-js/dist/cjs/index.js';
-import { utils } from 'ethers';
+import { utils, BigNumber } from 'ethers';
 
 import {
   runBlock,
@@ -281,8 +281,6 @@ export const createActionEntry = async (colonyClient, action) => await runBlock(
       type,
     };
 
-  // CreateDomain: 'CREATE_DOMAIN',
-  // EditDomain: 'EDIT_DOMAIN',
   // MoveFunds: 'MOVE_FUNDS',
   // UnlockToken: 'UNLOCK_TOKEN',
   // VersionUpgrade: 'VERSION_UPGRADE',
@@ -444,12 +442,51 @@ export const createActionEntry = async (colonyClient, action) => await runBlock(
       };
       case ColonyActionType.CreateDomain:
       case ColonyActionType.EditDomain: {
+        // const [{
+        //   agent: initiatorAddress,
+        //   domainId,
+        // }] = values;
+
+        // if (parseInt(domainId, 10) !== colonyJS.Id.RootDomain) {
+        //   try {
+        //     await graphQl(
+        //       createAction,
+        //       {
+        //         input: {
+        //           ...inputData,
+        //           initiatorAddress: utils.getAddress(initiatorAddress),
+        //           fromDomainId: `${utils.getAddress(colonyClient.address)}_${domainId}`,
+        //         },
+        //       },
+        //       `${process.env.AWS_APPSYNC_ADDRESS}/graphql`,
+        //       { 'x-api-key': process.env.AWS_APPSYNC_KEY },
+        //     );
+        //   } catch (error) {
+        //     //
+        //   }
+        // }
+        return;
+      };
+      case ColonyActionType.MoveFunds: {
         const [{
           agent: initiatorAddress,
-          domainId,
+          fromPot,
+          toPot,
+          amount,
+          token: tokenAddress,
         }] = values;
 
-        if (parseInt(domainId, 10) !== colonyJS.Id.RootDomain) {
+        let fromDomainId;
+        let toDomainId;
+        try {
+          // Only colonies post v5 have this method
+          fromDomainId = await colonyClient.getDomainFromFundingPot(fromPot);
+          toDomainId = await colonyClient.getDomainFromFundingPot(toPot);
+        } catch (error) {
+          //
+        }
+
+        if (fromDomainId && toDomainId) {
           try {
             await graphQl(
               createAction,
@@ -457,7 +494,10 @@ export const createActionEntry = async (colonyClient, action) => await runBlock(
                 input: {
                   ...inputData,
                   initiatorAddress: utils.getAddress(initiatorAddress),
-                  fromDomainId: `${utils.getAddress(colonyClient.address)}_${domainId}`,
+                  fromDomainId: `${utils.getAddress(colonyClient.address)}_${fromDomainId.toString()}`,
+                  toDomainId: `${utils.getAddress(colonyClient.address)}_${toDomainId.toString()}`,
+                  amount,
+                  tokenAddress: utils.getAddress(tokenAddress),
                 },
               },
               `${process.env.AWS_APPSYNC_ADDRESS}/graphql`,
@@ -465,24 +505,11 @@ export const createActionEntry = async (colonyClient, action) => await runBlock(
             );
           } catch (error) {
             //
+            console.log(error);
           }
         }
         return;
       };
-      // case ColonyActionType.CreateDomain: {
-      //   console.log({ type, values})
-      //   console.log('-----------')
-      //   return;
-      // }
-      // case ColonyActionType.EditDomain: {
-      //   const [{
-      //     agent: initiatorAddress,
-      //     domainId,
-      //   }] = values;
-      //   console.log({ type, values })
-      //   console.log('-----------')
-      //   return;
-      // }
       default: {
         return;
       };

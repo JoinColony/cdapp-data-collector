@@ -1026,6 +1026,52 @@ const run = async () => {
                     await throttle();
                   }
 
+                  //  one tx payments
+                  let shouldFetchOneTx = true;
+                  let currentColonyOneTxs = [];
+
+                  if (args.showTimers) {
+                    console.log();
+                  }
+
+                  while (shouldFetchOneTx) {
+                    const {
+                      data: {
+                        oneTxPayments = []
+                      } = {}
+                    } = await graphQL(
+                      getOneTxPayments,
+                      {
+                        colonyAddress: currentColonyClient.address.toLowerCase(),
+                        upToBlock: args.endBlock,
+                        first: parseInt(process.env.SUBGRAPH_BATCH_SIZE, 10),
+                        skip: currentColonyOneTxs.length,
+                      },
+                      process.env.SUBGRAPH_ADDRESS,
+                    );
+
+                    if (oneTxPayments.length) {
+                      currentColonyOneTxs = [
+                        ...currentColonyOneTxs,
+                        ...oneTxPayments,
+                      ];
+                    } else {
+                      shouldFetchOneTx = false;
+                    }
+
+                    if (args.showTimers) {
+                      console.log(`Fetched ${currentColonyOneTxs.length} one tx related entities...`);
+                    }
+
+                    await throttle();
+                  }
+
+                  // filter out any entries that also appear in the oneTx array
+                  currentColonyActions = currentColonyActions.filter((action) => {
+                    const actionIsAlsoPayment = currentColonyOneTxs.find(payment => payment.transaction.hash === action.transaction.hash);
+                    return !actionIsAlsoPayment;
+                  });
+
                   let reducedColonyActions = currentColonyActions.sort(sortMetadataByTimestamp).reverse().reduce(
                     (reducedActions, currentAction) => {
                       const actionTxHash = currentAction.transaction.hash;
@@ -1214,47 +1260,6 @@ const run = async () => {
                     }),
                   );
 
-                  //  one tx payments
-
-                  let shouldFetchOneTx = true;
-                  let currentColonyOneTxs = [];
-
-                  if (args.showTimers) {
-                    console.log();
-                  }
-
-                  while (shouldFetchOneTx) {
-                    const {
-                      data: {
-                        oneTxPayments = []
-                      } = {}
-                    } = await graphQL(
-                      getOneTxPayments,
-                      {
-                        colonyAddress: currentColonyClient.address.toLowerCase(),
-                        upToBlock: args.endBlock,
-                        first: parseInt(process.env.SUBGRAPH_BATCH_SIZE, 10),
-                        skip: currentColonyOneTxs.length,
-                      },
-                      process.env.SUBGRAPH_ADDRESS,
-                    );
-
-                    if (oneTxPayments.length) {
-                      currentColonyOneTxs = [
-                        ...currentColonyOneTxs,
-                        ...oneTxPayments,
-                      ];
-                    } else {
-                      shouldFetchOneTx = false;
-                    }
-
-                    if (args.showTimers) {
-                      console.log(`Fetched ${currentColonyOneTxs.length} one tx related entities...`);
-                    }
-
-                    await throttle();
-                  }
-
                   console.log();
 
                   await Promise.all(
@@ -1296,7 +1301,7 @@ const run = async () => {
                     }),
                   );
 
-                    return;
+                  return;
 
                   const actionsFromEventsCount = Object.keys(reducedColonyActions).length;
 
