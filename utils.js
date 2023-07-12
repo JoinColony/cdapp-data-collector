@@ -67,3 +67,26 @@ export const sortMetadataByTimestamp = (
   { transaction: { block: { timestamp: timestampA }}},
   { transaction: { block: { timestamp: timestampB }}},
 ) => parseInt(timestampB, 10) - parseInt(timestampA, 10);
+
+// ripped strait out of block ingestor
+export const getRolesMapFromEvents = (
+  eventsValues,
+  setToNull = true,
+) => {
+  let roleMap = {};
+
+  eventsValues.map(({ name, role, setTo }) => {
+    const set = setTo === true ? true : false;
+    const roleValue = {
+      [`role_${name === 'RecoveryRoleSet(address,bool)' ? 0 : role
+        }`]: set || (setToNull ? null : set),
+    };
+    roleMap = {
+      ...roleMap,
+      ...roleValue,
+    };
+    return undefined;
+  });
+
+  return roleMap;
+};

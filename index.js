@@ -1135,12 +1135,17 @@ const run = async () => {
 
                       // single line display
 
-                      if (detectActionType(colonyAction.values) === 'MINT_TOKENS') {
-                        console.log(
-                          `Action #${colonyActionIndex + 1}`,
-                          'TX:', colonyAction.transactionHash,
-                          'Type:', detectActionType(colonyAction.values),
-                        );
+                      switch (detectActionType(colonyAction.values)) {
+                        case 'MINT_TOKENS':
+                        case 'SET_USER_ROLES':
+                          console.log(
+                            `Action #${colonyActionIndex + 1}`,
+                            'TX:', colonyAction.transactionHash,
+                            'Type:', detectActionType(colonyAction.values),
+                          );
+                          break;
+                        default:
+                          break;
                       }
                     }),
                   );

@@ -9,6 +9,9 @@ import {
   ColonyActionType,
 } from "./helpers.js";
 import {
+  getRolesMapFromEvents,
+} from './utils.js';
+import {
   createToken,
   createColonyTokens,
   createUser,
@@ -278,6 +281,17 @@ export const createActionEntry = async (colonyClient, action) => await runBlock(
       type,
     };
 
+  // ColonyEdit: 'COLONY_EDIT',
+  // CreateDomain: 'CREATE_DOMAIN',
+  // EditDomain: 'EDIT_DOMAIN',
+  // EmitDomainReputationPenalty: 'EMIT_DOMAIN_REPUTATION_PENALTY',
+  // EmitDomainReputationReward: 'EMIT_DOMAIN_REPUTATION_REWARD',
+  // MoveFunds: 'MOVE_FUNDS',
+  // Payment: 'PAYMENT',
+  // Recovery: 'RECOVERY',
+  // UnlockToken: 'UNLOCK_TOKEN',
+  // VersionUpgrade: 'VERSION_UPGRADE',
+
     switch (type) {
       case ColonyActionType.MintTokens: {
         const [{
@@ -307,6 +321,48 @@ export const createActionEntry = async (colonyClient, action) => await runBlock(
           } catch (error) {
             //
           }
+        }
+        return;
+      };
+      case ColonyActionType.SetUserRoles: {
+        const receipt = await colonyClient.provider.getTransactionReceipt(
+          transactionHash,
+        );
+
+        const eventWithUser = values.find(({ user }) => !!user);
+
+        try {
+          await graphQl(
+            createAction,
+            {
+              input: {
+                ...inputData,
+                initiatorAddress: values.agent || eventWithUser.agent || receipt.from,
+                recipientAddress: eventWithUser.user,
+                fromDomainId: `${utils.getAddress(colonyClient.address)}_${eventWithUser.domainId || 1}`,
+                roles: {
+                  ...getRolesMapFromEvents(
+                    values,
+                    false,
+                  ),
+                },
+                individualEvents: JSON.stringify(
+                  values.map(
+                    ({ name, role, setTo }, index) => ({
+                      id: `${transactionHash}_${index}`,
+                      type: name.slice(0, name.indexOf('(')),
+                      role,
+                      setTo,
+                    }),
+                  ),
+                ),
+              },
+            },
+            `${process.env.AWS_APPSYNC_ADDRESS}/graphql`,
+            { 'x-api-key': process.env.AWS_APPSYNC_KEY },
+          );
+        } catch (error) {
+          //
         }
         return;
       };
