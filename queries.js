@@ -426,3 +426,20 @@ export const getUserToken = /* GraphQL */ `
     }
   }
 `;
+
+// used as a makeshift way of reversing the domainId from the skillId
+export const getDomainFromSkill = /* GraphQL */ `
+  query GetDomainFromSkill($colonyAddress: ID!, $skillId: Int!) {
+    listDomains(
+      filter: {
+        colonyId: {eq: $colonyAddress },
+        nativeSkillId: { eq: $skillId }
+      }
+    ) {
+      items {
+        nativeId
+        id
+      }
+    }
+  }
+`;
