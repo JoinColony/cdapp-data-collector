@@ -40,6 +40,7 @@ import {
   updateExtension,
   createRoleEntry,
   updateColonyMetadata,
+  updateDomainMetadata,
 } from './mutations.js';
 
 import {
@@ -1073,13 +1074,16 @@ const run = async () => {
                   // generate metadata changelogs
                   let prevColonyMetadataChangelog;
                   let metadataChangelog = [];
-                  let prevDomainMetadataChangelog;
+                  let prevDomainMetadataChangelog = {};
+                  let domainMetadataChangelog = {};
+
                   await Promise.all(
                     Object.keys(reducedColonyActions).map(async (colonyActionTransactionHash) => {
                       const action = reducedColonyActions[colonyActionTransactionHash];
                       const type = detectActionType(action.values);
                       action.type = type;
 
+                      // colony
                       if (action.type === ColonyActionType.ColonyEdit) {
                         const [{ metadata }] = action.values;
                         const ipfsData = await getIpfsHash(metadata);
@@ -1119,8 +1123,55 @@ const run = async () => {
                           metadataChangelog.push(action.metadataChangelog);
                         }
                       }
-                      if (action.type === ColonyActionType.EditDomain) { }
+                      // domains
+                      if (action.type === ColonyActionType.EditDomain || action.type === ColonyActionType.CreateDomain) {
+                        const { metadata, domainId } = action.values.find(event => !!event.metadata);
+                        const domain = parseInt(domainId, 10);
 
+                        if (domain !== colonyJS.Id.RootDomain) {
+                          let ipfsData;
+                          if (metadata) {
+                            ipfsData = await getIpfsHash(metadata);
+                          }
+                          if (ipfsData) {
+                            const name = ipfsData.domainName || ipfsData.data && ipfsData.data.domainName || '';
+                            const description = ipfsData.domainPurpose || ipfsData.data && ipfsData.data.domainPurpose || '';
+                            const color = DomainColorMap[parseInt(ipfsData.domainColor || ipfsData.data && ipfsData.data.domainColor || 0, 10)];
+
+                            if (!prevDomainMetadataChangelog[domain]) {
+                              action.metadataChangelog = {
+                                transactionHash: action.transactionHash,
+                                newName: name,
+                                oldName: '',
+                                newColor: color,
+                                oldColor: DomainColorMap[0],
+                                newDescription: description,
+                                oldDescription: '',
+                              };
+                            } else {
+                              action.metadataChangelog = {
+                                transactionHash: action.transactionHash,
+                                newName: name,
+                                oldName: prevDomainMetadataChangelog[domain].newName,
+                                newColor: color,
+                                oldColor: prevDomainMetadataChangelog[domain].newColor,
+                                newDescription: description,
+                                oldDescription: prevDomainMetadataChangelog[domain].newDescription,
+                              };
+                            };
+
+                            prevDomainMetadataChangelog[domain] = {
+                              ...action.metadataChangelog,
+                            };
+
+                            if (domainMetadataChangelog[domain]) {
+                              domainMetadataChangelog[domain].push(action.metadataChangelog);
+                            } else {
+                              domainMetadataChangelog[domain] = [action.metadataChangelog];
+                            }
+                          }
+                        }
+                      }
                       reducedColonyActions[colonyActionTransactionHash] = action;
                     }),
                   );
@@ -1140,8 +1191,28 @@ const run = async () => {
                     );
                   } catch (error) {
                     //
-                    console.log(error)
                   }
+
+                  // update the domains metadata changelog
+                  await Promise.all(
+                    Object.keys(domainMetadataChangelog).map(async (domainId) => {
+                      try {
+                        await graphQL(
+                          updateDomainMetadata,
+                          {
+                            input: {
+                              id: `${utils.getAddress(currentColonyClient.address)}_${domainId}`,
+                              changelog: domainMetadataChangelog[domainId],
+                            },
+                          },
+                          `${process.env.AWS_APPSYNC_ADDRESS}/graphql`,
+                          { 'x-api-key': process.env.AWS_APPSYNC_KEY },
+                        );
+                      } catch (error) {
+                        //
+                      }
+                    }),
+                  );
 
                   //  one tx payments
 

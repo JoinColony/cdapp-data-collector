@@ -48,6 +48,14 @@ export const createDomainMetadata = /* GraphQL */ `
   }
 `;
 
+export const updateDomainMetadata = /* GraphQL */ `
+  mutation UpdateDomainMetadata($input: UpdateDomainMetadataInput!) {
+    updateDomainMetadata(input: $input) {
+      id
+    }
+  }
+`;
+
 export const createDomain = /* GraphQL */ `
   mutation CreateDomain($input: CreateDomainInput!) {
     createDomain(input: $input) {
