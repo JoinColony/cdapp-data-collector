@@ -5,8 +5,8 @@ import { utils } from 'ethers';
 
 import {
   runBlock,
-  detectActionType,
   ColonyActionType,
+  getIpfsHash,
 } from "./helpers.js";
 import {
   getRolesMapFromEvents,
@@ -269,9 +269,9 @@ export const createActionEntry = async (colonyClient, action) => await runBlock(
       blockNumber,
       timestamp,
       values,
+      type,
+      metadataChangelog,
     } = action;
-
-    const type = detectActionType(values);
 
     const inputData = {
       id: transactionHash,
@@ -282,7 +282,6 @@ export const createActionEntry = async (colonyClient, action) => await runBlock(
       type,
     };
 
-  // ColonyEdit: 'COLONY_EDIT',
   // CreateDomain: 'CREATE_DOMAIN',
   // EditDomain: 'EDIT_DOMAIN',
   // MoveFunds: 'MOVE_FUNDS',
@@ -305,8 +304,8 @@ export const createActionEntry = async (colonyClient, action) => await runBlock(
         //       {
         //         input: {
         //           ...inputData,
-        //           initiatorAddress,
-        //           recipientAddress,
+        //           initiatorAddress: utils.getAddress(initiatorAddress),
+        //           recipientAddress: utils.getAddress(recipientAddress),
         //           amount: amount.toString(),
         //           tokenAddress: utils.getAddress(colonyClient.tokenClient.address),
         //           fromDomainId: `${utils.getAddress(colonyClient.address)}_${colonyJS.Id.RootDomain}`
@@ -334,8 +333,8 @@ export const createActionEntry = async (colonyClient, action) => await runBlock(
         //     {
         //       input: {
         //         ...inputData,
-        //         initiatorAddress: values.agent || eventWithUser.agent || receipt.from,
-        //         recipientAddress: eventWithUser.user,
+        //         initiatorAddress: utils.getAddress(values.agent || eventWithUser.agent || receipt.from),
+        //         recipientAddress: utils.getAddress(eventWithUser.user),
         //         fromDomainId: `${utils.getAddress(colonyClient.address)}_${eventWithUser.domainId || 1}`,
         //         roles: {
         //           ...getRolesMapFromEvents(
@@ -391,8 +390,8 @@ export const createActionEntry = async (colonyClient, action) => await runBlock(
         //       {
         //         input: {
         //           ...inputData,
-        //           initiatorAddress,
-        //           recipientAddress: userAddress,
+        //           initiatorAddress: utils.getAddress(initiatorAddress),
+        //           recipientAddress: utils.getAddress(userAddress),
         //           fromDomainId: `${utils.getAddress(colonyClient.address)}_${domain.nativeId}`,
         //           amount,
         //         },
@@ -407,19 +406,46 @@ export const createActionEntry = async (colonyClient, action) => await runBlock(
         return;
       };
       case ColonyActionType.Payment: {
+        // const [{
+        //   fundamentalChainId,
+        //   address: initiatorAddress,
+        //   payment: {
+        //     domain: { ethDomainId },
+        //     fundingPot: {
+        //       fundingPotPayouts: [{
+        //         token: { address: tokenAddress },
+        //         amount,
+        //       }],
+        //     },
+        //     recipient: recipientAddress,
+        //   }
+        // }] = values;
+
+        // try {
+        //   await graphQl(
+        //     createAction,
+        //     {
+        //       input: {
+        //         ...inputData,
+        //         initiatorAddress: utils.getAddress(initiatorAddress),
+        //         recipientAddress: utils.getAddress(recipientAddress),
+        //         fromDomainId: `${utils.getAddress(colonyClient.address)}_${ethDomainId}`,
+        //         amount,
+        //         tokenAddress: utils.getAddress(tokenAddress),
+        //         fundamentalChainId: parseInt(fundamentalChainId, 10),
+        //       },
+        //     },
+        //     `${process.env.AWS_APPSYNC_ADDRESS}/graphql`,
+        //     { 'x-api-key': process.env.AWS_APPSYNC_KEY },
+        //   );
+        // } catch (error) {
+        //   //
+        // }
+        return;
+      };
+      case ColonyActionType.ColonyEdit: {
         const [{
-          fundamentalChainId,
-          address: initiatorAddress,
-          payment: {
-            domain: { ethDomainId },
-            fundingPot: {
-              fundingPotPayouts: [{
-                token: { address: tokenAddress },
-                amount,
-              }],
-            },
-            recipient: recipientAddress,
-          }
+          agent: initiatorAddress,
         }] = values;
 
         try {
@@ -428,12 +454,8 @@ export const createActionEntry = async (colonyClient, action) => await runBlock(
             {
               input: {
                 ...inputData,
-                initiatorAddress,
-                recipientAddress,
-                fromDomainId: `${utils.getAddress(colonyClient.address)}_${ethDomainId}`,
-                amount,
-                tokenAddress,
-                fundamentalChainId: parseInt(fundamentalChainId, 10),
+                initiatorAddress: utils.getAddress(initiatorAddress),
+                fromDomainId: `${utils.getAddress(colonyClient.address)}_${colonyJS.Id.RootDomain}`,
               },
             },
             `${process.env.AWS_APPSYNC_ADDRESS}/graphql`,

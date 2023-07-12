@@ -24,6 +24,14 @@ export const createColonyMetadata = /* GraphQL */ `
   }
 `;
 
+export const updateColonyMetadata = /* GraphQL */ `
+  mutation UpdateColonyMetadata($input: UpdateColonyMetadataInput!) {
+    updateColonyMetadata(input: $input) {
+      id
+    }
+  }
+`;
+
 export const createColonyTokens = /* GraphQL */ `
   mutation CreateColonyTokens($input: CreateColonyTokensInput!) {
     createColonyTokens(input: $input) {

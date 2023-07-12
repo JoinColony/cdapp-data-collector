@@ -39,6 +39,7 @@ import {
   createExtension,
   updateExtension,
   createRoleEntry,
+  updateColonyMetadata,
 } from './mutations.js';
 
 import {
@@ -1024,7 +1025,7 @@ const run = async () => {
                     await throttle();
                   }
 
-                  const reducedColonyActions = currentColonyActions.reduce(
+                  let reducedColonyActions = currentColonyActions.sort(sortMetadataByTimestamp).reverse().reduce(
                     (reducedActions, currentAction) => {
                       const actionTxHash = currentAction.transaction.hash;
                       const actionName = currentAction.name;
@@ -1067,7 +1068,80 @@ const run = async () => {
                       };
                     },
                     {},
-                  )
+                  );
+
+                  // generate metadata changelogs
+                  let prevColonyMetadataChangelog;
+                  let metadataChangelog = [];
+                  let prevDomainMetadataChangelog;
+                  await Promise.all(
+                    Object.keys(reducedColonyActions).map(async (colonyActionTransactionHash) => {
+                      const action = reducedColonyActions[colonyActionTransactionHash];
+                      const type = detectActionType(action.values);
+                      action.type = type;
+
+                      if (action.type === ColonyActionType.ColonyEdit) {
+                        const [{ metadata }] = action.values;
+                        const ipfsData = await getIpfsHash(metadata);
+                        if (ipfsData) {
+                          const tokens = ipfsData.colonyTokens || ipfsData.data && ipfsData.data.colonyTokens || [];
+                          const displayName = ipfsData.colonyDisplayName || ipfsData.data && ipfsData.data.colonyDisplayName || '';
+                          const verifiedAddresses = ipfsData.verifiedAddresses || ipfsData.data && ipfsData.data.verifiedAddresses || [];
+                          const isWhitelistActivated = ipfsData.isWhitelistActivated || ipfsData.data && ipfsData.data.isWhitelistActivated || false;
+                          const avatarHash = ipfsData.colonyAvatarHash || ipfsData.data && ipfsData.data.colonyAvatarHash || null;
+
+                          if (!prevColonyMetadataChangelog) {
+                            action.metadataChangelog = {
+                              transactionHash: action.transactionHash,
+                              newDisplayName: displayName,
+                              oldDisplayName: displayName,
+                              hasAvatarChanged: false,
+                              haveTokensChanged: false,
+                              hasWhitelistChanged: false,
+                            };
+                          } else {
+                            action.metadataChangelog = {
+                              transactionHash: action.transactionHash,
+                              newDisplayName: displayName,
+                              oldDisplayName: prevColonyMetadataChangelog.newDisplayName,
+                              hasAvatarChanged: avatarHash !== prevColonyMetadataChangelog.avatarHash,
+                              haveTokensChanged: tokens.length !== prevColonyMetadataChangelog.tokens.length,
+                              hasWhitelistChanged: isWhitelistActivated !== prevColonyMetadataChangelog.isWhitelistActivated || verifiedAddresses.length !== prevColonyMetadataChangelog.verifiedAddresses.length,
+                            };
+                          };
+                          prevColonyMetadataChangelog = {
+                            ...action.metadataChangelog,
+                            tokens,
+                            avatarHash,
+                            verifiedAddresses,
+                            isWhitelistActivated,
+                          };
+                          metadataChangelog.push(action.metadataChangelog);
+                        }
+                      }
+                      if (action.type === ColonyActionType.EditDomain) { }
+
+                      reducedColonyActions[colonyActionTransactionHash] = action;
+                    }),
+                  );
+
+                  // update the colony metadata changelog
+                  try {
+                    await graphQL(
+                      updateColonyMetadata,
+                      {
+                        input: {
+                          id: utils.getAddress(currentColonyClient.address),
+                          changelog: metadataChangelog,
+                        },
+                      },
+                      `${process.env.AWS_APPSYNC_ADDRESS}/graphql`,
+                      { 'x-api-key': process.env.AWS_APPSYNC_KEY },
+                    );
+                  } catch (error) {
+                    //
+                    console.log(error)
+                  }
 
                   //  one tx payments
 
@@ -1118,7 +1192,7 @@ const run = async () => {
 
                       // console.log(colonyAction);
 
-                      // await createActionEntry(currentColonyClient, colonyAction);
+                      await createActionEntry(currentColonyClient, colonyAction);
 
                       // multi line display
 
@@ -1133,7 +1207,7 @@ const run = async () => {
 
                       return;
 
-                      switch (detectActionType(colonyAction.values)) {
+                      switch (colonyAction.type) {
                         case '':
                         // case 'MINT_TOKENS':
                         // case 'SET_USER_ROLES':
@@ -1142,7 +1216,7 @@ const run = async () => {
                           console.log(
                             `Action #${colonyActionIndex + 1}`,
                             'TX:', colonyAction.transactionHash,
-                            'Type:', detectActionType(colonyAction.values),
+                            'Type:', colonyAction.type,
                           );
                           break;
                         default:
@@ -1151,7 +1225,7 @@ const run = async () => {
                     }),
                   );
 
-
+                    return;
 
                   const actionsFromEventsCount = Object.keys(reducedColonyActions).length;
 
@@ -1171,8 +1245,6 @@ const run = async () => {
                         timestamp,
                         values: [paymentAction],
                       });
-
-                      return;
 
                       // single line display
                       console.log(
